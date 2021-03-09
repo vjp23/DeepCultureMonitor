@@ -1,0 +1,8 @@
+atlas-i2c==0.3.1
+adafruit-circuitpython-charlcd==3.3.3
+RPI.GPIO==0.7.0
+adafruit-circuitpython-ads1x15==2.2.3
+w1thermsensor==1.3.0
+smbus2==0.3.0
+RPLCD==1.3.0
+twilio==6.47.0
