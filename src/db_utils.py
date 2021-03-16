@@ -105,7 +105,7 @@ class DWCDatabaseHandler(object):
 
 	def _delete_last_n(self, n=1000000):
 		sql = f"""DELETE FROM dwc_sensor_data WHERE
-			point_id NOT IN (
+			point_id IN (
 				SELECT point_id
 				FROM dwc_sensor_data
 				ORDER BY point_id DESC
@@ -123,30 +123,21 @@ class DWCDatabaseHandler(object):
 		return row_count[0][0]
 
 	def archive_db_file(self):
-		# Close the DB connection
-		self.close()
+		# Commit pending DB transactions
+		self.conn.commit()
 
-		# Copy the DB file to a new file with the local datetime
+		# Backup the DB file to a new file with the local datetime
 		local_time = datetime.now() + timedelta(hours=self.utc_offset[0], 
 												minutes=self.utc_offset[1])
 		db_prefix = self.db_filename[:self.db_filename.index('.db')]
-		archive_name = local_time.strftime(f'{db_prefix}_%Y%m%d_%H%m')
+		archive_name = local_time.strftime(f'{db_prefix}_%Y%m%d_%H%M.db')
+		
+		# Perform the DB backup
+		print('Backing up to database to ' + archive_name + '...')
+		bck = sqlite3.connect(archive_name)
+		with bck:
+			self.conn.backup(bck)
+		bck.close()
 
-		# Make a ZIP archive of the DB file
-		in_dir = archive_name[:archive_name.rfind('/')]
-		if in_dir == -1:
-			in_dir = '.'
-		in_file = self.db_filename[self.db_filename.rfind('/') + 1:]
-		shutil.make_archive(archive_name, 'zip', in_dir, in_file)
-
-		# Delete the original DB file
-		if os.path.exists(self.db_filename):
-			os.remove(self.db_filename)
-
-		# Delete the journal file (if it exists)
-		journal_name = self.db_filename + '-journal'
-		if os.path.exists(journal_name):
-			os.remove(journal_name)
-
-		# Create a new DB connection/file
-		self.init_db(self.db_filename)
+		# Delete all rows from table *except* for most recent 10 rows
+		self._delete_last_n(self.get_db_size() - 10)

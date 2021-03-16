@@ -9,13 +9,14 @@ from devices import *
 def _get_data(temp_sensor, water_level_sensor, ph_sensor, ec_sensor, attempts=0, just_gallons=False, skip_sms=False):
 	gallons, voltage = water_level_sensor.read()
 
-	if gallons >= SMS_LEVEL and not skip_sms:
-		response = send_sms(f'Low DWC water level warning!\n\nAdd {gallons} gallons as soon as possible.')
-		if response is not None:
-			if response != -1:
-				print(f'Send SMS for low water level warning. Water below nominal level by {gallons} gallons.')
-		else:
-			print('Send failed.')
+	if gallons >= SMS_LEVEL 
+		if not skip_sms:
+			response = send_sms(f'Low DWC water level warning!\n\nAdd {gallons} gallons as soon as possible.')
+			if response is not None:
+				if response != -1:
+					print(f'Send SMS for low water level warning. Water below nominal level by {gallons} gallons.')
+			else:
+				print('Send failed.')
 			
 	else:
 		reset_sms_status()
