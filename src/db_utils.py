@@ -133,7 +133,7 @@ class DWCDatabaseHandler(object):
 		archive_name = local_time.strftime(f'{db_prefix}_%Y%m%d_%H%M.db')
 		
 		# Perform the DB backup
-		print('Backing up to database to ' + archive_name + '...')
+		print('Backing up database to ' + archive_name + '...')
 		bck = sqlite3.connect(archive_name)
 		with bck:
 			self.conn.backup(bck)
