@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 class DWCDatabaseHandler(object):
 
-	def __init__(self, db_filename, max_rows=250000, utc_offset=(-5, 0)):
+	def __init__(self, db_filename, max_rows=25000, utc_offset=(-5, 0)):
 		"""
 		utc_offset is of the form (hours, minutes) to add to UTC 
 			time to get local time

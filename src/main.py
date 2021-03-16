@@ -128,7 +128,7 @@ try:
 
 	# Setup LCD screen, address is 0x20
 	lcd = CharLCD(i2c_expander='MCP23008', address=0x20,
-              cols=16, rows=2, backlight_enabled=False)
+			  cols=16, rows=2, backlight_enabled=False)
 	print('LCD setup.')
 	
 	# Setup push button
