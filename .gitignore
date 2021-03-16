@@ -1,0 +1,6 @@
+**/*.DS_Store
+**/*.numbers
+**/*.zip
+**/*.csv
+**/*.db
+**/*.db-journal

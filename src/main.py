@@ -9,7 +9,7 @@ from devices import *
 def _get_data(temp_sensor, water_level_sensor, ph_sensor, ec_sensor, attempts=0, just_gallons=False, skip_sms=False):
 	gallons, voltage = water_level_sensor.read()
 
-	if gallons >= SMS_LEVEL 
+	if gallons >= SMS_LEVEL: 
 		if not skip_sms:
 			response = send_sms(f'Low DWC water level warning!\n\nAdd {gallons} gallons as soon as possible.')
 			if response is not None:
