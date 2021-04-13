@@ -1,51 +1,44 @@
-import os
 import time
-import shutil
 import sqlite3
-from sqlite3 import Error
 from datetime import datetime, timedelta
 
 
 class DWCDatabaseHandler(object):
 
-	def __init__(self, db_filename, max_rows=25000, utc_offset=(-5, 0)):
+	def __init__(self, db_filename, utc_offset=(-5, 0)):
 		"""
 		utc_offset is of the form (hours, minutes) to add to UTC 
 			time to get local time
 		"""
 		self.db_filename = db_filename
 		self.conn = None
-		self.max_rows = max_rows
 		self.utc_offset = utc_offset
 
 		self.init_db(db_filename)
 
+
+	def __del__(self):
+		self.close()
+
 	def init_db(self, db_filename):
-		try:
-			conn = self._create_db_connection(self.db_filename)
-			self.conn = conn
+		conn = self._create_db_connection(self.db_filename)
+		self.conn = conn
 
-			create_sensor_table_sql = self._get_create_sensor_table_sql()
-			_ = self._execute_sql(query=create_sensor_table_sql)
-
-		except Error as that_shit:
-			if conn:
-				conn.close()
-			print(that_shit)
+		create_sensor_table_sql = self._get_create_sensor_table_sql()
+		_ = self._execute_sql(query=create_sensor_table_sql)
 
 	@staticmethod
 	def _create_db_connection(db_filename):
 		conn = None
-
 		try:
 			conn = sqlite3.connect(db_filename)
 			return conn
 
-		except Error as that_shit:
-			print(f'Error in _create_db_connection: {that_shit}')
+		except Exception as e:
 			if conn:
 				conn.close()
-			raise Error
+			print(f'Error in _create_db_connection: {e}')
+			raise e
 
 	def close(self):
 		if self.conn is not None:
@@ -69,6 +62,7 @@ class DWCDatabaseHandler(object):
 			self.conn = self._create_db_connection(self.db_filename)
 
 		if query is None:
+			self.close()
 			raise ValueError("No query passed.")
 
 		try:
@@ -76,34 +70,60 @@ class DWCDatabaseHandler(object):
 			cursor.execute(query, args)
 
 			self.conn.commit()
-		except sqlite3.OperationalError:
+
+		except Exception as e:
 			# If DB is locked, wait a second and try again
 			if attempts < 3:
 				time.sleep(1)
 				return self._execute_sql(query=query, args=args, attempts=attempts+1)
-				
-			raise SystemError('DB is locked, 3 attempts failed.')
 
-		return cursor.fetchall()
+			raise e
 
-	def write(self, timestamp, modality, value):
+		results = cursor.fetchall()
+		self.close()
+
+		return results
+
+	def get_latest(self, modalities=(0, 1, 2, 3)):
+		if isinstance(modalities, int):
+			modalities = (modalities, )
+		
+		query = f"""
+				SELECT timestamp, modality, value
+				FROM dwc_sensor_data
+				WHERE (modality, timestamp) in
+
+				(
+				  SELECT modality, max(timestamp) 
+				  FROM dwc_sensor_data
+				  WHERE modality IN ({','.join(modalities)})
+				  GROUP BY modality
+				)
+				"""
+
+		results = self._execute_sql(query)
+		db_values = {modality: value for _, modality, value in results}
+
+		return db_values
+
+	def write_one(self, modality, value, timestamp):
 		sql = 'INSERT INTO dwc_sensor_data(timestamp,modality,value) VALUES(?,?,?)'
 
 		_ = self._execute_sql(query=sql, args=(timestamp, modality, value))
 
 		# Check the DB size and if too large then create archive file and new DB
-		db_rows = self.get_db_size()
-		if db_rows >= self.max_rows:
-			self.archive_db_file()
+		# db_rows = self.get_db_size()
+		# if db_rows >= self.max_rows:
+		# 	self.archive_db_file()
 
-	def write_all_to_db(self, voltage, gallons, temp, ph, ec):
+	def write_all_to_db(self, gallons, ph, ec, temp):
 		timestamp = time.time()
 
-		# modality 0 = voltage, 1 = gallons, 2 = temperature, 3 = ph, 4 = ec
-		for modality, value in enumerate((voltage, gallons, temp, ph, ec)):
-			self.write(timestamp, modality, value)
+		# modality 0 = gallons, 1 = ph, 2 = ec, 3 = temp
+		for modality, value in enumerate((gallons, ph, ec temp)):
+			self.write_one(timestamp, modality, value)
 
-	def _delete_last_n(self, n=1000000):
+	def _delete_oldeset_n(self, n=1000000):
 		sql = f"""DELETE FROM dwc_sensor_data WHERE
 			point_id IN (
 				SELECT point_id
@@ -140,4 +160,4 @@ class DWCDatabaseHandler(object):
 		bck.close()
 
 		# Delete all rows from table *except* for most recent 10 rows
-		self._delete_last_n(self.get_db_size() - 10)
+		self._delete_oldest_n(self.get_db_size() - 10)

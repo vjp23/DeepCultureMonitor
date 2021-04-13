@@ -17,13 +17,13 @@ def index():
 	print('Get data from DB...')
 	db_values = DB.read_latest()
 
-	print(f'Got {db_values[1]} gallons, {round(db_values[2],1)} degrees F, {db_values[3]} pH, {db_values[4]} PPM.')
+	print(f'Got {db_values[0]} gallons, {round(db_values[3], 1)} degrees F, {db_values[1]} pH, {db_values[2]} PPM.')
 	print('Rendering HTML template...')
 
-	return render_template('metrics.html', gallons_to_add=db_values[1], 
-										   temp=round(db_values[2],1), 
-										   ph=db_values[3],
-										   ppm=int(db_values[4]))
+	return render_template('metrics.html', gallons=db_values[0], 
+										   temp=round(db_values[3],1), 
+										   ph=db_values[1],
+										   ppm=int(db_values[2]))
 
 
 @app.route("/modality_names")
@@ -47,7 +47,7 @@ def api():
 	if days + hours + minutes + seconds == 0:
 		days = 1
 
-	modalities = tuple(int(m) for m in request_data.get('modalities', (1, 2, 3, 4)))
+	modalities = tuple(int(m) for m in request_data.get('modalities', (0, 1, 2, 3)))
 
 	since = datetime.now() - timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
 
@@ -64,7 +64,7 @@ def sms():
 
 	db_values = DB.read_latest()
 
-	db_dict = {'gallons': db_values[1], 'temp': db_values[2], 'ph': db_values[3], 'ppm': int(db_values[4])}
+	db_dict = {'gallons': db_values[0], 'temp': db_values[3], 'ph': db_values[1], 'ppm': int(db_values[2])}
 
 	print(f'Sending {db_dict} in response to SMS request...')
 

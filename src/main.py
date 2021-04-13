@@ -1,9 +1,9 @@
 from vars import *
 from controller import DWCController
-from db_utils import DWCDatabaseController
+from db_utils import DWCDatabaseHandler
 
 
-db = DWCDatabaseController(DB_NAME)
+db = DWCDatabaseHandler(DB_NAME)
 
 controller = DWCController(db=db, 
 					       button_pin=BUTTON_PIN, 

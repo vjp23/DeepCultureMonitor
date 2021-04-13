@@ -74,7 +74,7 @@ class DWCController(object):
 		ph_lims = (5.6, 6.4)
 		ec_lims = (400, 1500)
 
-		gallons, temp, ph, ec = db.get_latest(modality=(0, 1, 2, 3))
+		gallons, temp, ph, ec = db.get_latest(modalities=(0, 1, 2, 3))
 
 		message = 'DWC system health alert:\n'
 		alert = False
@@ -159,14 +159,14 @@ class DWCController(object):
 	def _state_one(self):
 		if self.fresh:
 			self.button.color(hex_color=self.colors[0])
-			gallons, temp, ph, ec = db.get_latest(modality=(0, 1, 2, 3))
+			gallons, temp, ph, ec = db.get_latest(modalities=(0, 1, 2, 3))
 			self.lcd.write('{gallons} gal, {}F\r\n{} pH, {} PPM'.format(gallons, 1, round(temp), round(ph, 2), ec), reset=True)
 			self.fresh = False
 
 	def _state_two(self):
 		if self.fresh:
 			self.button.color(hex_color=self.colors[1])
-			gallons = db.get_latest(modality=(0))
+			gallons = db.get_latest(modalities=(0))
 			self.lcd.write('Gallons:', reset=True)
 			self.fresh = False
 
