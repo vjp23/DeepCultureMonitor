@@ -1,3 +1,4 @@
+import time
 import busio
 import board
 import statistics
@@ -68,15 +69,27 @@ class LCD(object):
 class Solenoid(object):
 
     def __init__(self, pin):
-        self.output = DigitalOutputDevice(pin=pin,
-                                          active_high=True,
-                                          initial_value=False)
+        self.output = MOSFETSwitch(pin=pin)
 
     def open(self):
         self.output.on()
 
     def close(self):
         self.output.off()
+
+
+class MOSFETSwitch(object):
+
+    def __init__(self, pin):
+        self.mosfet = DigitalOutputDevice(pin=pin,
+                                          active_high=True,
+                                          initial_value=False)
+
+    def on(self):
+        self.mosfet.on()
+
+    def off(self):
+        self.mosfet.off()
 
 
 class AtlasSensor(object):
@@ -111,10 +124,13 @@ class AtlasSensor(object):
 
 class WaterHeightSensor(object):
 
-    def __init__(self, channel, slope=1, intercept=0, modality=-1):
+    def __init__(self, channel, mosfet_pin, slope=1, intercept=0, modality=-1):
         self.slope = slope
         self.intercept = intercept
         self.modality = modality
+
+        # Use a MOSFET controller to turn the sensor voltage off between readings to avoid zapping the pH sensor
+        self.mosfet = MOSFETSwitch(mosfet_pin)
 
         # Create the I2C bus
         i2c = busio.I2C(board.SCL, board.SDA)
@@ -133,9 +149,15 @@ class WaterHeightSensor(object):
         self.chan = AnalogIn(ads, input_chan)
 
     def _read_voltage(self, num_samples=9):
+        self.mosfet.on()
+
+        time.sleep(0.05)
+
         samples = []
         for _ in range(num_samples):
             samples.append(self.chan.voltage)
+
+        self.mosfet.off()
 
         return statistics.median(samples)
 

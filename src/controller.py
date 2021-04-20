@@ -6,7 +6,7 @@ from devices import RGBLEDButton, LCD, Solenoid, AtlasSensor, WaterHeightSensor,
 
 class DWCController(object):
 
-	def __init__(self, db, button_pin, rgb_pins, slnd_pin, height_chan, height_cal, 
+	def __init__(self, db, button_pin, rgb_pins, slnd_pin, height_chan, height_pin, height_cal, 
 				 res_cap, timeouts, colors, sms_num, fill_flag, sms_flag, verbose=True):
 		self.state = 0
 		self.fresh = False
@@ -29,6 +29,7 @@ class DWCController(object):
 
 		# Setup sensors
 		self.etape = WaterHeightSensor(channel=height_chan,
+									   mosfet_pin=height_pin,
 									   slope=height_cal['m'],
 									   intercept=height_cal['b'],
 									   modality=0)
@@ -164,14 +165,13 @@ class DWCController(object):
 			self.fresh = False
 
 	def _state_two(self):
+		gallons = db.get_latest(modalities=(0))
+
 		if self.fresh:
 			self.button.color(hex_color=self.colors[1])
-			gallons = db.get_latest(modalities=(0))
 			self.lcd.write('Gallons:', reset=True)
 			self.fresh = False
-
-		self.lcd.quick_write(msg='{}       '.format(round(gallons, 1)), 
-						     cursor_pos=(1,0))
+		self.lcd.quick_write(msg='{}       '.format(round(gallons, 1)), cursor_pos=(1,0))
 		time.sleep(0.25)
 		
 

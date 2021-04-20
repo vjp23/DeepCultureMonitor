@@ -8,8 +8,10 @@ COPY build/requirements.txt .
 RUN pip3 install --upgrade setuptools && \
 	pip3 install -r requirements.txt 
 
-ENV BUTTON_CHANNEL=4 \
+ENV SMS_NUM=+12345678910 \
+    BUTTON_CHANNEL=4 \
     ETAPE_CHANNEL=0 \
+    ETAPE_SWITCH_PIN=26 \
     RED_LED_PIN=17 \
     GREEN_LED_PIN=27 \
     BLUE_LED_PIN=22 \
