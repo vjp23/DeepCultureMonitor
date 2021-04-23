@@ -16,7 +16,7 @@ def _get_twilio_creds(cred_file='twilio_creds.csv'):
 	return sid, token, number
 
 
-def _send(msg, to='+12679877998'):
+def _send(msg, to):
 	sid, token, from_number = _get_twilio_creds()
 	client = Client(sid, token)
 	message = client.messages.create(body=msg, from_=from_number, to=to)
@@ -44,9 +44,9 @@ def reset_sms_status(sms_flag='sms_status.json'):
 	set_flag(sms_flag, 0)
 
 
-def send_sms(msg, skip_validation=False):
+def send_sms(msg, to=None, skip_validation=False):
 	if skip_validation or _validate_sms_delay():
-		return _send(msg)
+		return _send(msg, to)
 
 	# If send fails at Twilio level, message.sid is None; indicate failure here with -1
 	return -1
