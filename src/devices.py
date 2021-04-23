@@ -34,7 +34,8 @@ class RGBLEDButton(object):
         else:
             rgb_tupe = rgb_color
 
-        self.led.color = rgb_tupe
+        if rgb_tupe != self.led.color:
+            self.led.color = rgb_tupe
 
     def off(self):
         self.color(rgb_color=(0, 0, 0))
@@ -54,7 +55,7 @@ class LCD(object):
 
     def quick_write(self, msg, cursor_pos=(1,0)):
         self.lcd.cursor_pos = cursor_pos
-        lcd.write_string(msg)
+        self.lcd.write_string(msg)
 
     def clear(self):
         self.lcd.clear()

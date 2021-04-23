@@ -17,10 +17,11 @@ ENV SMS_NUM=+12345678910 \
     BLUE_LED_PIN=22 \
     SLND_PIN=21 \
     RES_CAPACITY=6.5 \
-    GAL_HEIGHT_SLOPE=1 \
-    GAL_HEIGHT_INTERCEPT=0 \
+    GAL_HEIGHT_SLOPE=4.83 \
+    GAL_HEIGHT_INTERCEPT=-11.1 \
     DB_NAME=/db/dwc-monitor-data.db \
-    FILL_FLAG_PATH=/db/fill_flag.json
+    FILL_FLAG_PATH=/db/fill_flag.json \
+    SMS_FLAG_PATH=/db/sms_flag.json
 
 COPY src/ src/
 
