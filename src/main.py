@@ -17,7 +17,8 @@ controller = DWCController(db=db,
                            colors=('#ff9100', '#009bdf'), 
                            sms_num=SMS_NUM, 
                            fill_flag=FILL_FLAG, 
-                           sms_flag=SMS_FLAG, 
+                           sms_flag=SMS_FLAG,
+                           interval=SAMPLE_INTERVAL,
                            verbose=True)
 
 print('Controller setup. Begin loop iterations.')

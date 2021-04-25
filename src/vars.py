@@ -14,6 +14,9 @@ V_TO_GAL_M = float(os.environ['GAL_HEIGHT_SLOPE'])
 V_TO_GAL_B = float(os.environ['GAL_HEIGHT_INTERCEPT'])
 
 SMS_NUM = os.environ['SMS_NUM']
-SMS_FLAG = os.environt['SMS_FLAG_PATH']
-DB_NAME = os.environ['DB_NAME']
+SMS_FLAG = os.environ['SMS_FLAG_PATH']
 FILL_FLAG = os.environ['FILL_FLAG_PATH']
+
+DB_NAME = os.environ['DB_NAME']
+
+SAMPLE_INTERVAL = float(os.environ['SAMPLE_INTERVAL'])
