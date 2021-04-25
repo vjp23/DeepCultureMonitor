@@ -106,10 +106,13 @@ class DWCController(object):
 
     def _fill_tank(self):
         gallons = self.etape.read()
+        # Write the start of the fill process to the DB
+        self.db.write_action(action=0, timestamp=time(), values=[gallons])
 
         while gallons < self.capacity:
             try:
                 gallons = self.etape.read()
+                self.db.write_one(self.etape.modality, gallons, time())
                 self.solenoid.open()
                 sleep(0.25)
             except Exception as e:
@@ -117,18 +120,20 @@ class DWCController(object):
                 print(e)
         
         self.solenoid.close()
+        # Write the completion of the fill process to the DB
+        self.db.write_action(action=1, timestamp=time(), values=[gallons])
 
     def check_fill(self):
         fill_flag, _ = read_flag(self.fill_flag)
 
         if fill_flag == 1:
             send_sms('DWC filling tank...', self.sms_num, skip_validation=True)
-            print('Fill flag set to 1. Filling tank at {}.'.format(strftime("%H:%M%p %Z on %b %d, %Y")))
+            self._loudspeaker('Fill flag set to 1. Filling tank at {}.'.format(strftime("%H:%M%p %Z on %b %d, %Y")))
             self._fill_tank()
-            print('Tank fill completed at {}. Reset fill flag.'.format(strftime("%H:%M%p %Z on %b %d, %Y")))
+            self._loudspeaker('Tank fill completed at {}. Reset fill flag.'.format(strftime("%H:%M%p %Z on %b %d, %Y")))
             set_flag(self.fill_flag, 0)
             send_sms('DWC tank fill completed.', self.sms_num, skip_validation=True)
-            print('Tank fill flag set to 0. Return to state one.')
+            self._loudspeaker('Tank fill flag set to 0. Return to state one.')
 
     def check_state(self):
         if self.state > 0:

@@ -27,6 +27,9 @@ class DWCDatabaseHandler(object):
         create_sensor_table_sql = self._get_create_sensor_table_sql()
         _ = self._execute_sql(query=create_sensor_table_sql)
 
+        create_action_table_sql = self._get_create_action_table_sql()
+        _ = self._execute_sql(query=create_action_table_sql)
+
     @staticmethod
     def _create_db_connection(db_filename):
         conn = None
@@ -54,6 +57,20 @@ class DWCDatabaseHandler(object):
                     timestamp text NOT NULL,
                     modality integer NOT NULL,
                     value float NOT NULL
+            )
+            """
+        return sensor_table_def
+
+    @staticmethod
+    def _get_create_action_table_sql():
+        sensor_table_def = """
+            CREATE TABLE IF NOT EXISTS dwc_action_data (
+                    point_id integer PRIMARY KEY,
+                    timestamp text NOT NULL,
+                    action integer NOT NULL,
+                    value_1 float DEFAULT 0.0,
+                    value_2 float DEFAULT 0.0,
+                    value_3 float DEFAULT 0.0
             )
             """
         return sensor_table_def
@@ -116,6 +133,34 @@ class DWCDatabaseHandler(object):
         # db_rows = self.get_db_size()
         # if db_rows >= self.max_rows:
         #   self.archive_db_file()
+
+    def write_action(self, action, timestamp, values=()):
+        """ 
+        values should be a *list* of len 1, 2, or 3 where values are inserted into the value_1, 
+        value_2, and value_3 columns respectively. If fewer than 3 values are passed, then
+        the columns are filled left to right. For example, if len(values) = 1, then the value will
+        be inserted into value_1. If len(values) = 2, then values[0] will be inserted into
+        value_1 and values[1] into value_2.
+
+        Action numbers:
+        0 = fill tank start, value_1 is starting water level
+        1 = fill tank stop, value_1 in ending water level
+        """
+        if values:
+            if len(values) == 1:
+                sql = 'INSERT INTO dwc_action_data(timestamp,action,value_1) VALUES(?,?,?)'
+            elif len(values) == 2:
+                sql = 'INSERT INTO dwc_action_data(timestamp,action,value_1,value_2) VALUES(?,?,?,?)'
+            elif len(values) == 3:
+                sql = 'INSERT INTO dwc_action_data(timestamp,action,value_1,value_2,value_3) VALUES(?,?,?,?,?)'
+            else:
+                print('WARNING: TOO MANY VALUES INSERTED INTO THE ACTIONS TABLE. Insert at most 3 values.')
+                return
+        else:
+            sql = 'INSERT INTO dwc_action_data(timestamp,action) VALUES(?,?)'
+
+        _ = self._execute_sql(query=sql, args=(timestamp, action, *values))
+
 
     def write_all_to_db(self, gallons, ph, ec, temp):
         timestamp = time.time()
