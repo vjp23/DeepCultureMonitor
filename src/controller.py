@@ -207,7 +207,7 @@ class DWCController(object):
             self.button.color(hex_color=self.colors[1])
             self.lcd.write('Gallons:', reset=True)
             self.fresh = False
-        self.lcd.quick_write(msg='{}       '.format(round(gallons, 1)), cursor_pos=(1,0))
+        self.lcd.quick_write(msg='{}             '.format(round(gallons, 1)), cursor_pos=(1,0))
         sleep(0.25)
         
 
