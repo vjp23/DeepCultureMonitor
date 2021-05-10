@@ -1,10 +1,14 @@
+import os
 import csv
 import time
-from vars import *
 from math import sqrt
 from operator import mul
 from datetime import datetime
 from devices import WaterHeightSensor
+
+
+ETAPE_CHANNEL = int(os.environ.get('ETAPE_CHANNEL', 0))
+ETAPE_SWITCH_PIN = int(os.environ.get('ETAPE_SWITCH_PIN', 26))
 
 
 etape = WaterHeightSensor(channel=ETAPE_CHANNEL,
