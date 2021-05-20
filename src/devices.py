@@ -49,7 +49,7 @@ class LCD(object):
 
     def write(self, msg, reset=True):
         if reset:
-            self.lcd.clear()
+            self.clear()
         self.lcd.write_string(msg)
         self.on()
 
@@ -64,6 +64,7 @@ class LCD(object):
         self.lcd.backlight_enabled = True
 
     def off(self):
+        self.clear()
         self.lcd.backlight_enabled = False
 
 
