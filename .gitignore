@@ -1,3 +1,9 @@
+# Ignore any credentials
+**/*.json
+
+# Ignore the GCP CF
+**/GCF-redirect-to-dwc.py
+
 **/*.DS_Store
 **/*.numbers
 **/*.zip

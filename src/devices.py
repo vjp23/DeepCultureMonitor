@@ -1,77 +1,27 @@
-import time
-import busio
-import board
-import statistics
-from RPLCD.i2c import CharLCD
+from parameters import PH_ADDRESS, EC_ADDRESS, ETAPE_CHANNEL, ETAPE_MOSFET_PIN, ETAPE_SLOPE, ETAPE_INTERCEPT, CYCLE_DURATION, DB_FILENAME
 import adafruit_ads1x15.ads1015 as ADS
-from atlas_i2c import sensors, commands
-from w1thermsensor import W1ThermSensor
 from adafruit_ads1x15.analog_in import AnalogIn
-from w1thermsensor import W1ThermSensor
-from gpiozero import RGBLED, Button, DigitalOutputDevice
+from atlas_i2c import sensors, commands
+from w1thermsensor import W1ThermSensor, Unit
+from gpiozero import DigitalOutputDevice
+import board
+import busio
+import statistics
+import logging
+import time
+import sys
+import os
+sys.path.append(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')))
+from db.database import DeviceDatabaseHandler
+
+DB = DeviceDatabaseHandler(DB_FILENAME)
 
 
-class RGBLEDButton(object):
+class SolenoidDevice(object):
 
-    def __init__(self, button_pin, button_func, red_pin, green_pin, blue_pin, cathode=False):
-        self.led = RGBLED(red=red_pin,
-                          green=green_pin,
-                          blue=blue_pin,
-                          active_high=cathode)
-        self.button = Button(button_pin, bounce_time=0.1)
-        self.button.when_pressed = button_func
-
-    @staticmethod
-    def _hextofloats(h):
-        'Takes a hex rgb string (e.g. #ffffff) and returns an RGB tuple (float, float, float).'
-        return tuple(int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)) # skip '#'
-
-    def color(self, hex_color=None, rgb_color=None):
-        assert hex_color is not None or rgb_color is not None, 'No color passed!'
-        
-        if hex_color is not None:
-            rgb_tupe = self._hextofloats(hex_color)
-        else:
-            rgb_tupe = rgb_color
-
-        if rgb_tupe != self.led.color:
-            self.led.color = rgb_tupe
-
-    def off(self):
-        self.color(rgb_color=(0, 0, 0))
-
-
-class LCD(object):
-
-    def __init__(self):
-        self.lcd = CharLCD(i2c_expander='MCP23008', address=0x20,
-                           cols=16, rows=2, backlight_enabled=False)
-
-    def write(self, msg, reset=True):
-        if reset:
-            self.clear()
-        self.lcd.write_string(msg)
-        self.on()
-
-    def quick_write(self, msg, cursor_pos=(1,0)):
-        self.lcd.cursor_pos = cursor_pos
-        self.lcd.write_string(msg)
-
-    def clear(self):
-        self.lcd.clear()
-
-    def on(self):
-        self.lcd.backlight_enabled = True
-
-    def off(self):
-        self.clear()
-        self.lcd.backlight_enabled = False
-
-
-class Solenoid(object):
-
-    def __init__(self, pin):
-        self.output = MOSFETSwitch(pin=pin)
+    def __init__(self, pin, fail_open=True):
+        # By "fail open," we refer to the state of the circuit, not the solenoid
+        self.output = MOSFETSwitchDevice(pin=pin, fail_open=fail_open)
 
     def open(self):
         self.output.on()
@@ -80,12 +30,19 @@ class Solenoid(object):
         self.output.off()
 
 
-class MOSFETSwitch(object):
+class MOSFETSwitchDevice(object):
 
-    def __init__(self, pin):
+    def __init__(self, pin, fail_open=True):
         self.mosfet = DigitalOutputDevice(pin=pin,
                                           active_high=True,
                                           initial_value=False)
+        self.fail_open = fail_open
+
+    def __del__(self):
+        if self.fail_open:
+            self.off()
+        else:
+            self.on()
 
     def on(self):
         self.mosfet.on()
@@ -94,13 +51,12 @@ class MOSFETSwitch(object):
         self.mosfet.off()
 
 
-class AtlasSensor(object):
-
-    def __init__(self, name, address, post_func=None, modality=-1):
+class AtlasSensor:
+    # Interfaces with Atlas Scientific device i2c library
+    def __init__(self, name: str, address: int, max_attempts: int = 3):
         self.sensor = self._setup(name, address)
         self.name = name
-        self.modality = modality
-        self.post_func = post_func
+        self.max_attempts = max_attempts
 
     def _setup(self, name, address):
         sensor = sensors.Sensor(name, address)
@@ -108,15 +64,12 @@ class AtlasSensor(object):
         return sensor
 
     def read(self, attempts=0):
-        if attempts < 3:
+        if attempts < self.max_attempts:
+            # Retry with linear backoff
+            time.sleep(attempts + 1)
             try:
                 response = self.sensor.query(commands.READ)
-                data = float(response.data)
-                
-                if self.post_func is not None:
-                    data = self.post_func(data)
-
-                return data
+                return response.data.decode("ascii")
 
             except Exception as e:
                 return self.read(attempts=attempts+1)
@@ -126,38 +79,32 @@ class AtlasSensor(object):
 
 class WaterHeightSensor(object):
 
-    def __init__(self, channel, mosfet_pin, slope=1, intercept=0, modality=-1):
+    def __init__(self, channel, mosfet_pin, slope=1, intercept=0):
+        self.voltage = -1
         self.slope = slope
         self.intercept = intercept
-        self.modality = modality
 
         # Use a MOSFET controller to turn the sensor voltage off between readings to avoid zapping the pH sensor
-        self.mosfet = MOSFETSwitch(mosfet_pin)
+        self.mosfet = MOSFETSwitchDevice(mosfet_pin)
 
         # Create the I2C bus
         i2c = busio.I2C(board.SCL, board.SDA)
         # Create the ADC object using the I2C bus
         ads = ADS.ADS1015(i2c)
         # Create single-ended input on channel
-        if channel == 0:    
-            input_chan = ADS.P0
-        elif channel == 1:
-            input_chan = ADS.P1
-        elif channel == 2:
-            input_chan = ADS.P2
-        elif channel == 3:
-            input_chan = ADS.P3
+        input_chan = [ADS.P0, ADS.P1, ADS.P2, ADS.P3][channel]
 
         self.chan = AnalogIn(ads, input_chan)
 
-    def _read_voltage(self, num_samples=9):
+    def read_voltage(self, num_samples=75):
         self.mosfet.on()
 
-        time.sleep(0.05)
+        time.sleep(0.25)
 
         samples = []
         for _ in range(num_samples):
             samples.append(self.chan.voltage)
+            time.sleep(0.0025)
 
         self.mosfet.off()
 
@@ -166,13 +113,10 @@ class WaterHeightSensor(object):
     def _voltage_to_gallons(self, voltage):
         return round(max(self.slope * voltage + self.intercept, 0), 1)
 
-    def read_voltage_gallons(self):
-        return self.read(with_voltage=True)
-
     def read(self, with_voltage=False):
-        voltage = self._read_voltage()
+        voltage = self.read_voltage()
         gallons = self._voltage_to_gallons(voltage)
-    
+
         if with_voltage:
             return gallons, voltage
 
@@ -181,11 +125,187 @@ class WaterHeightSensor(object):
 
 class TempSensor(object):
 
-    def __init__(self, modality=-1):
+    def __init__(self):
         self.sensor = W1ThermSensor()
-        self.modality = modality
 
     def read(self, decimals=1):
-        temp = self.sensor.get_temperature(W1ThermSensor.DEGREES_F)
+        temp = self.sensor.get_temperature(Unit.DEGREES_F)
 
         return round(temp, decimals)
+
+
+class State:
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def run(self):
+        logging.error(f"run() not implemented for {self.name} node.")
+        return None
+
+    def next(self, result):
+        logging.error(f"next() not implemented for {self.name} node.")
+        return None
+
+
+class DeviceState(State):
+    def __init__(self, name, device, database):
+        super().__init__(name=name)
+        self.device = device
+        self.db = database
+        self.value = None
+
+
+class pH(DeviceState):
+    def __init__(self, address, database):
+        device = AtlasSensor(name="ph", address=address, max_attempts=3)
+        super().__init__(name="ph", device=device, database=database)
+
+    def run(self):
+        try:
+            self.value = self.device.read()
+            ph = round(float(self.value), 2)
+
+            self.db.write_value("ph", ph)
+
+            logging.info(f"pH: {ph}")
+            return True
+
+        except SystemError as e:
+            logging.error(f"Sensor read error for {self.name}: " + str(e))
+
+            self.db.write_error(self.name, str(e))
+
+            return False
+
+    def next(self, result):
+        return DeviceStateMachine.ec
+
+
+class EC(DeviceState):
+    def __init__(self, address, database):
+        device = AtlasSensor(name="ec", address=address, max_attempts=3)
+        super().__init__(name="ec", device=device, database=database)
+
+    def run(self):
+        try:
+            self.value = self.device.read()
+            ec = int(round(float(self.value) / 2))
+
+            self.db.write_value("ec", ec)
+
+            logging.info(f"EC: {ec}")
+            return True
+
+        except SystemError as e:
+            logging.error(f"Sensor read error for {self.name}: " + str(e))
+
+            self.db.write_error(self.name, str(e))
+
+            return False
+
+    def next(self, result):
+        return DeviceStateMachine.water_height
+
+
+class WaterHeight(DeviceState):
+    def __init__(self, channel, mosfet_pin, slope, intercept, database):
+        device = WaterHeightSensor(channel=channel, mosfet_pin=mosfet_pin, slope=slope, intercept=intercept)
+        super().__init__(name="water_height", device=device, database=database)
+
+    def run(self):
+        try:
+            self.value = self.device.read(with_voltage=True)
+            gallons, voltage = self.value
+
+            self.db.write_value("water_gallons", gallons)
+            self.db.write_value("water_height_volts", voltage)
+
+            logging.info(f"Reservoir level: {gallons} gallons")
+            logging.info(f"ETape Voltage: {voltage} volts")
+            return True
+
+        except SystemError as e:
+            logging.error(f"Sensor read error for {self.name}: " + str(e))
+
+            self.db.write_error(self.name, str(e))
+
+            return False
+
+    def next(self, result):
+        return DeviceStateMachine.water_temp
+
+
+class WaterTemp(DeviceState):
+    def __init__(self, database):
+        device = TempSensor()
+        super().__init__(name="water_temp_f", device=device, database=database)
+
+    def run(self):
+        try:
+            self.value = self.device.read()
+            temp_f = self.value
+
+            self.db.write_value("water_temp_f", temp_f)
+
+            logging.info(f"Water temperature: {temp_f} degrees F")
+            return True
+
+        except SystemError as e:
+            logging.error(f"Sensor read error for {self.name}: " + str(e))
+
+            self.db.write_error(self.name, str(e))
+
+            return False
+
+    def next(self, result):
+        return DeviceStateMachine.sleep
+
+
+class Sleep(State):
+    def __init__(self, cycle_duration=3600):
+        super().__init__(name="sleep")
+        self.last_cycle_start = time.time()
+        self.cycle_duration = cycle_duration
+
+    def run(self):
+        sleep_for = max(0, self.cycle_duration - (time.time() - self.last_cycle_start))
+        logging.info(f"Sleep for {sleep_for} seconds...")
+        time.sleep(sleep_for)
+        self.last_cycle_start = time.time()
+
+    def next(self, _):
+        return None
+
+
+class StateMachine:
+    def __init__(self, initial_state):
+        self.initial_state = initial_state
+        self.current_state = initial_state
+
+    def step(self):
+        logging.info("Step: " + str(self.current_state))
+        result = self.current_state.run()
+        self.current_state = self.current_state.next(result)
+
+
+class DeviceStateMachine(StateMachine):
+    def __init__(self):
+        super().__init__(DeviceStateMachine.ph)
+
+    def cycle(self):
+        logging.info(">>>========= Begin new cycle =========<<<")
+        self.current_state = self.initial_state
+        while self.current_state is not None:
+            self.step()
+
+# Initialize static variables
+DeviceStateMachine.ph = pH(PH_ADDRESS, DB)
+DeviceStateMachine.ec = EC(EC_ADDRESS, DB)
+DeviceStateMachine.water_height = WaterHeight(ETAPE_CHANNEL, ETAPE_MOSFET_PIN, ETAPE_SLOPE, ETAPE_INTERCEPT, DB)
+DeviceStateMachine.water_temp = WaterTemp(DB)
+DeviceStateMachine.sleep = Sleep(CYCLE_DURATION)
+
+device_state_machine = DeviceStateMachine()

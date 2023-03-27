@@ -1,6 +1,72 @@
-<!doctype html>
-<title>DWC Metrics</title>
-<h1>Gallons in reservoir: {{ gallons }}</h1>
-<h1>Reservoir temp:       {{ temp }} degrees F</h1>
-<h1>Reservoir pH:         {{ ph }}</h1>
-<h1>Reservoir EC:         {{ ppm }} PPM</h1>
+{% extends 'layout.html' %}
+{% block content %}
+<h1 class="title has-text-centered">DWC Metrics</h1>
+
+<!-- Latest-data metric cards -->
+<div class="columns is-mobile is-multiline">
+  <div class="column">
+    <div class="box nowrap">
+      pH: {{ ph }}
+    </div>
+  </div>
+  <div class="column">
+    <div class="box nowrap">
+      EC: {{ ppm }} PPM
+    </div>
+  </div>
+  <div class="column">
+    <div class="box nowrap">
+      Water Temp: {{ temp }}<span>&#176;</span> F
+    </div>
+  </div>
+  <div class="column">
+    <div class="box nowrap">
+      Water Level: {{ gallons }} gallons
+    </div>
+  </div>
+</div>
+
+<!-- Plots -->
+<div class="container">
+  <div class="columns is-mobile is-centered is-multiline">
+    <div class="column is-four-fifths-mobile is-two-thirds-tablet is-half-desktop">
+      <!-- pH plot -->
+        <div class="chart-container minheight200">
+          <canvas id="ph-chart"></canvas>
+        </div>
+    </div>
+    <div class="column is-four-fifths-mobile is-two-thirds-tablet is-half-desktop">
+      <!-- EC plot -->
+        <div class="chart-container minheight200">
+          <canvas id="ec-chart"></canvas>
+        </div>
+    </div>
+    <div class="column is-four-fifths-mobile is-two-thirds-tablet is-half-desktop">
+      <!-- Temp plot -->
+        <div class="chart-container minheight200">
+          <canvas id="temp-chart"></canvas>
+        </div>
+    </div>
+    <div class="column is-four-fifths-mobile is-two-thirds-tablet is-half-desktop">
+      <!-- Water level plot -->
+        <div class="chart-container minheight200">
+          <canvas id="level-chart"></canvas>
+        </div>
+    </div>
+  </div>
+</div>
+
+<!-- Setup plot data from Flask -->
+<script>
+  const ph_y = {{ ph_values }}
+  const ph_x = {{ ph_times|safe }}
+  const ec_y = {{ ec_values }}
+  const ec_x = {{ ec_times|safe }}
+  const temp_y = {{ temp_values }}
+  const temp_x = {{ temp_times|safe }}
+  const level_y = {{ level_values }}
+  const level_x = {{ level_times|safe }}
+</script>
+
+<script src="{{url_for('static', filename='scripts/charts.js')}}"></script>
+{% endblock %}
