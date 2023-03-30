@@ -12,8 +12,8 @@ fi
 
 docker stop server
 docker rm server
-docker build -f /home/pi/budbucket/server-build/Dockerfile . -t server
-docker run -d -v /home/pi/budbucket/data/:/data/  -p 3141:3141 --restart=unless-stopped --name server server
+docker build -f /home/pi/DeepCultureMonitor/server-build/Dockerfile . -t server
+docker run -d -v /home/pi/DeepCultureMonitor/data/:/data/  -p 3141:3141 --restart=unless-stopped --name server server
 
 if [[ "$CHANGEDDIRS" = true ]]
 then

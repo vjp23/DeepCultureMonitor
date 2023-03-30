@@ -12,7 +12,7 @@ fi
 
 docker stop ip-loop
 docker rm ip-loop
-docker build -f /home/pi/budbucket/ip-build/Dockerfile . -t ip-loop
+docker build -f /home/pi/DeepCultureMonitor/ip-build/Dockerfile . -t ip-loop
 docker run -d --restart=unless-stopped --name ip-loop ip-loop
 
 if [[ "$CHANGEDDIRS" = true ]]

@@ -1,4 +1,6 @@
-from parameters import PH_ADDRESS, EC_ADDRESS, ETAPE_CHANNEL, ETAPE_MOSFET_PIN, ETAPE_SLOPE, ETAPE_INTERCEPT, CYCLE_DURATION, DB_FILENAME
+from parameters import (PH_ADDRESS, EC_ADDRESS, ETAPE_CHANNEL, 
+    ETAPE_MOSFET_PIN, ETAPE_SLOPE, ETAPE_INTERCEPT, 
+    CYCLE_DURATION, DB_FILENAME, FILL_FLAG_PATH)
 import adafruit_ads1x15.ads1015 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 from atlas_i2c import sensors, commands
@@ -13,12 +15,12 @@ import sys
 import os
 sys.path.append(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')))
 from db.database import DeviceDatabaseHandler
+from flags.flag_utils import read_flag, set_flag
 
 DB = DeviceDatabaseHandler(DB_FILENAME)
 
 
 class SolenoidDevice(object):
-
     def __init__(self, pin, fail_open=True):
         # By "fail open," we refer to the state of the circuit, not the solenoid
         self.output = MOSFETSwitchDevice(pin=pin, fail_open=fail_open)
@@ -31,7 +33,6 @@ class SolenoidDevice(object):
 
 
 class MOSFETSwitchDevice(object):
-
     def __init__(self, pin, fail_open=True):
         self.mosfet = DigitalOutputDevice(pin=pin,
                                           active_high=True,
@@ -78,7 +79,6 @@ class AtlasSensor:
 
 
 class WaterHeightSensor(object):
-
     def __init__(self, channel, mosfet_pin, slope=1, intercept=0):
         self.voltage = -1
         self.slope = slope
@@ -124,7 +124,6 @@ class WaterHeightSensor(object):
 
 
 class TempSensor(object):
-
     def __init__(self):
         self.sensor = W1ThermSensor()
 
@@ -265,15 +264,28 @@ class WaterTemp(DeviceState):
 
 
 class Sleep(State):
-    def __init__(self, cycle_duration=3600):
+    def __init__(self, cycle_duration=3600, fill_flag_path=''):
         super().__init__(name="sleep")
         self.last_cycle_start = time.time()
         self.cycle_duration = cycle_duration
+        self.fill_flag_path = fill_flag_path
+
+    def _monitor(self, sleep_for, cycle_period=0.25):
+        stop_at = time.time() + sleep_for
+        while time.time() < stop_at:
+            try:
+                flag, set_at = read_flag(self.fill_flag_path)
+            except FileNotFoundError:
+                flag = 0
+            if flag:
+                logging.info('++++++++++++++++++++++++++++++!!!! FLAG SET !!!!++++++++++++++++++++++++++++++')
+                set_flag(self.fill_flag_path, 0)
+            time.sleep(cycle_period)
 
     def run(self):
         sleep_for = max(0, self.cycle_duration - (time.time() - self.last_cycle_start))
-        logging.info(f"Sleep for {sleep_for} seconds...")
-        time.sleep(sleep_for)
+        logging.info(f"Monitor for requests for {sleep_for} seconds...")
+        self._monitor(sleep_for)
         self.last_cycle_start = time.time()
 
     def next(self, _):
@@ -306,6 +318,6 @@ DeviceStateMachine.ph = pH(PH_ADDRESS, DB)
 DeviceStateMachine.ec = EC(EC_ADDRESS, DB)
 DeviceStateMachine.water_height = WaterHeight(ETAPE_CHANNEL, ETAPE_MOSFET_PIN, ETAPE_SLOPE, ETAPE_INTERCEPT, DB)
 DeviceStateMachine.water_temp = WaterTemp(DB)
-DeviceStateMachine.sleep = Sleep(CYCLE_DURATION)
+DeviceStateMachine.sleep = Sleep(CYCLE_DURATION, FILL_FLAG_PATH)
 
 device_state_machine = DeviceStateMachine()

@@ -12,9 +12,8 @@ fi
 
 docker stop devices
 docker rm devices
-docker build -f /home/pi/budbucket/build/Dockerfile . -t devices
-docker run -d -v /home/pi/budbucket/data/:/data/ --privileged --restart=unless-stopped --name devices devices
-# docker run -it -v /home/pi/devices/data/:/data/ --privileged --restart=unless-stopped --name devices devices
+docker build -f /home/pi/DeepCultureMonitor/build/Dockerfile . -t devices
+docker run -d -v /home/pi/DeepCultureMonitor/data/:/data/ --privileged --restart=unless-stopped --name devices devices
 
 if [[ "$CHANGEDDIRS" = true ]]
 then

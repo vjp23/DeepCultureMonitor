@@ -58,14 +58,11 @@
 
 <!-- Setup plot data from Flask -->
 <script>
-  const ph_y = {{ ph_values }}
-  const ph_x = {{ ph_times|safe }}
-  const ec_y = {{ ec_values }}
-  const ec_x = {{ ec_times|safe }}
-  const temp_y = {{ temp_values }}
-  const temp_x = {{ temp_times|safe }}
-  const level_y = {{ level_values }}
-  const level_x = {{ level_times|safe }}
+  const ph_data = {{ ph_data|safe }}
+  const ec_data = {{ ec_data|safe }}
+  const temp_data = {{ temp_data|safe }}
+  const level_data = {{ level_data|safe }}
+  const appTimezone = {{ timezone|safe }}
 </script>
 
 <script src="{{url_for('static', filename='scripts/charts.js')}}"></script>
