@@ -1,7 +1,5 @@
-Chart.defaults.global.legend.display = false;
-
 new Chart(document.getElementById("ph-chart"), {
-  type: 'scatter',
+  type: 'line',
   data: {
     datasets: [{ 
         data: ph_data,
@@ -15,26 +13,31 @@ new Chart(document.getElementById("ph-chart"), {
       display: true,
       text: 'Nutrient Solution pH'
     },
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
     scales: {
       y: {
-        suggestedMin: 5.0,
-        suggestedMax: 7.0
+        suggestedMin: 5.5,
+        suggestedMax: 6.5
       },
-      xAxes: [{
+      x: {
+        adapters: {
+          date: {
+            zone: appTimezone
+          }
+        },
         type: 'time',
         time: {
           unit: 'hour',
-          timezone: appTimezone,
-          displayFormats: {
-            hour: 'H:mm'
-          },
-          tooltipFormat: 'H:mm'
         }
-      }]
+      }
     },
     elements: {
       line: {
-        borderWidth: 1.5
+        borderWidth: 1
       },
       point: {
         radius: 2,
@@ -48,7 +51,7 @@ new Chart(document.getElementById("ph-chart"), {
 });
 
 new Chart(document.getElementById("ec-chart"), {
-  type: 'scatter',
+  type: 'line',
   data: {
     datasets: [{ 
         data: ec_data,
@@ -62,22 +65,22 @@ new Chart(document.getElementById("ec-chart"), {
       display: true,
       text: 'Nutrient Solution EC (PPM)'
     },
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
     scales: {
       y: {
-        suggestedMin: 50.0,
-        suggestedMax: 1500.0
+        suggestedMin: 250.0,
+        suggestedMax: 1000.0
       },
-      xAxes: [{
+      x: {
         type: 'time',
         time: {
           unit: 'hour',
-          timezone: appTimezone,
-          displayFormats: {
-            hour: 'H:mm'
-          },
-          tooltipFormat: 'H:mm'
         }
-      }]
+      }
     },
     elements: {
       line: {
@@ -95,7 +98,7 @@ new Chart(document.getElementById("ec-chart"), {
 });
 
 new Chart(document.getElementById("temp-chart"), {
-  type: 'scatter',
+  type: 'line',
   data: {
     // labels: temp_x,
     datasets: [{ 
@@ -110,26 +113,26 @@ new Chart(document.getElementById("temp-chart"), {
       display: true,
       text: 'Water Temperature (°F)'
     },
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
     scales: {
       y: {
-        suggestedMin: 60.0,
-        suggestedMax: 100.0
+        suggestedMin: 65.0,
+        suggestedMax: 80.0
       },
-      xAxes: [{
+      x: {
         type: 'time',
         time: {
           unit: 'hour',
-          timezone: appTimezone,
-          displayFormats: {
-            hour: 'H:mm'
-          },
-          tooltipFormat: 'H:mm'
         }
-      }]
+      }
     },
     elements: {
       line: {
-        borderWidth: 1.5
+        borderWidth: 1
       },
       point: {
         radius: 2,
@@ -143,7 +146,7 @@ new Chart(document.getElementById("temp-chart"), {
 });
 
 new Chart(document.getElementById("level-chart"), {
-  type: 'scatter',
+  type: 'line',
   data: {
     // labels: level_x,
     datasets: [{ 
@@ -158,22 +161,22 @@ new Chart(document.getElementById("level-chart"), {
       display: true,
       text: 'Water Level (gallons)'
     },
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
     scales: {
       y: {
-        suggestedMin: 0.0,
-        suggestedMax: 8.0
+        suggestedMin: 5.0,
+        suggestedMax: 7.0
       },
-      xAxes: [{
+      x: {
         type: 'time',
         time: {
           unit: 'hour',
-          timezone: appTimezone,
-          displayFormats: {
-            hour: 'H:mm'
-          },
-          tooltipFormat: 'H:mm'
         }
-      }]
+      }
     },
     elements: {
       line: {
