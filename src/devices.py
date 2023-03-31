@@ -1,23 +1,14 @@
-from parameters import (PH_ADDRESS, EC_ADDRESS, ETAPE_CHANNEL, 
-    ETAPE_MOSFET_PIN, ETAPE_SLOPE, ETAPE_INTERCEPT, 
-    CYCLE_DURATION, DB_FILENAME, FILL_FLAG_PATH)
 import adafruit_ads1x15.ads1015 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 from atlas_i2c import sensors, commands
 from w1thermsensor import W1ThermSensor, Unit
-from gpiozero import DigitalOutputDevice
+from gpiozero import DigitalOutputDevice, Motor, DeviceClosed
 import board
 import busio
 import statistics
-import logging
 import time
 import sys
 import os
-sys.path.append(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')))
-from db.database import DeviceDatabaseHandler
-from flags.flag_utils import read_flag, set_flag
-
-DB = DeviceDatabaseHandler(DB_FILENAME)
 
 
 class SolenoidDevice(object):
@@ -40,16 +31,52 @@ class MOSFETSwitchDevice(object):
         self.fail_open = fail_open
 
     def __del__(self):
-        if self.fail_open:
-            self.off()
-        else:
-            self.on()
+        try:
+            if self.fail_open:
+                self.off()
+            else:
+                self.on()
+        except DeviceClosed:
+            pass
 
     def on(self):
         self.mosfet.on()
 
     def off(self):
         self.mosfet.off()
+
+
+class PeristalticPumpDevice(object):
+    def __init__(self, forward_pin, backward_pin, speed=0.5, mL_per_min=100):
+        self.pump = Motor(forward_pin, backward_pin)
+        self.speed = speed
+        self.rate = mL_per_min / 60
+
+    def __del__(self):
+        try:
+            self.pump.stop()
+        except DeviceClosed:
+            pass
+
+    def prime(self, prime_time=10):
+        self.run(run_time=prime_time)
+
+    def empty(self, empty_time=10):
+        self.run(run_time=empty_time, reverse=True)
+
+    def dispense(self, mL):
+        run_time = mL / self.rate
+        self.run(run_time=run_time)
+
+    def run(self, run_time, reverse=False):
+        try:
+            if reverse:
+                self.pump.backward(self.speed)
+            else:
+                self.pump.forward(self.speed)
+            time.sleep(run_time)
+        finally:
+            self.pump.stop()
 
 
 class AtlasSensor:
@@ -131,193 +158,3 @@ class TempSensor(object):
         temp = self.sensor.get_temperature(Unit.DEGREES_F)
 
         return round(temp, decimals)
-
-
-class State:
-    def __init__(self, name):
-        self.name = name
-
-    def __str__(self):
-        return self.name
-
-    def run(self):
-        logging.error(f"run() not implemented for {self.name} node.")
-        return None
-
-    def next(self, result):
-        logging.error(f"next() not implemented for {self.name} node.")
-        return None
-
-
-class DeviceState(State):
-    def __init__(self, name, device, database):
-        super().__init__(name=name)
-        self.device = device
-        self.db = database
-        self.value = None
-
-
-class pH(DeviceState):
-    def __init__(self, address, database):
-        device = AtlasSensor(name="ph", address=address, max_attempts=3)
-        super().__init__(name="ph", device=device, database=database)
-
-    def run(self):
-        try:
-            self.value = self.device.read()
-            ph = round(float(self.value), 2)
-
-            self.db.write_value("ph", ph)
-
-            logging.info(f"pH: {ph}")
-            return True
-
-        except SystemError as e:
-            logging.error(f"Sensor read error for {self.name}: " + str(e))
-
-            self.db.write_error(self.name, str(e))
-
-            return False
-
-    def next(self, result):
-        return DeviceStateMachine.ec
-
-
-class EC(DeviceState):
-    def __init__(self, address, database):
-        device = AtlasSensor(name="ec", address=address, max_attempts=3)
-        super().__init__(name="ec", device=device, database=database)
-
-    def run(self):
-        try:
-            self.value = self.device.read()
-            ec = int(round(float(self.value) / 2))
-
-            self.db.write_value("ec", ec)
-
-            logging.info(f"EC: {ec}")
-            return True
-
-        except SystemError as e:
-            logging.error(f"Sensor read error for {self.name}: " + str(e))
-
-            self.db.write_error(self.name, str(e))
-
-            return False
-
-    def next(self, result):
-        return DeviceStateMachine.water_height
-
-
-class WaterHeight(DeviceState):
-    def __init__(self, channel, mosfet_pin, slope, intercept, database):
-        device = WaterHeightSensor(channel=channel, mosfet_pin=mosfet_pin, slope=slope, intercept=intercept)
-        super().__init__(name="water_height", device=device, database=database)
-
-    def run(self):
-        try:
-            self.value = self.device.read(with_voltage=True)
-            gallons, voltage = self.value
-
-            self.db.write_value("water_gallons", gallons)
-            self.db.write_value("water_height_volts", voltage)
-
-            logging.info(f"Reservoir level: {gallons} gallons")
-            logging.info(f"ETape Voltage: {voltage} volts")
-            return True
-
-        except SystemError as e:
-            logging.error(f"Sensor read error for {self.name}: " + str(e))
-
-            self.db.write_error(self.name, str(e))
-
-            return False
-
-    def next(self, result):
-        return DeviceStateMachine.water_temp
-
-
-class WaterTemp(DeviceState):
-    def __init__(self, database):
-        device = TempSensor()
-        super().__init__(name="water_temp_f", device=device, database=database)
-
-    def run(self):
-        try:
-            self.value = self.device.read()
-            temp_f = self.value
-
-            self.db.write_value("water_temp_f", temp_f)
-
-            logging.info(f"Water temperature: {temp_f} degrees F")
-            return True
-
-        except SystemError as e:
-            logging.error(f"Sensor read error for {self.name}: " + str(e))
-
-            self.db.write_error(self.name, str(e))
-
-            return False
-
-    def next(self, result):
-        return DeviceStateMachine.sleep
-
-
-class Sleep(State):
-    def __init__(self, cycle_duration=3600, fill_flag_path=''):
-        super().__init__(name="sleep")
-        self.last_cycle_start = time.time()
-        self.cycle_duration = cycle_duration
-        self.fill_flag_path = fill_flag_path
-
-    def _monitor(self, sleep_for, cycle_period=0.25):
-        stop_at = time.time() + sleep_for
-        while time.time() < stop_at:
-            try:
-                flag, set_at = read_flag(self.fill_flag_path)
-            except FileNotFoundError:
-                flag = 0
-            if flag:
-                logging.info('++++++++++++++++++++++++++++++!!!! FLAG SET !!!!++++++++++++++++++++++++++++++')
-                set_flag(self.fill_flag_path, 0)
-            time.sleep(cycle_period)
-
-    def run(self):
-        sleep_for = max(0, self.cycle_duration - (time.time() - self.last_cycle_start))
-        logging.info(f"Monitor for requests for {sleep_for} seconds...")
-        self._monitor(sleep_for)
-        self.last_cycle_start = time.time()
-
-    def next(self, _):
-        return None
-
-
-class StateMachine:
-    def __init__(self, initial_state):
-        self.initial_state = initial_state
-        self.current_state = initial_state
-
-    def step(self):
-        logging.info("Step: " + str(self.current_state))
-        result = self.current_state.run()
-        self.current_state = self.current_state.next(result)
-
-
-class DeviceStateMachine(StateMachine):
-    def __init__(self):
-        super().__init__(DeviceStateMachine.ph)
-
-    def cycle(self):
-        logging.info(">>>========= Begin new cycle =========<<<")
-        self.current_state = self.initial_state
-        while self.current_state is not None:
-            self.step()
-
-# Initialize static variables
-DeviceStateMachine.ph = pH(PH_ADDRESS, DB)
-DeviceStateMachine.ec = EC(EC_ADDRESS, DB)
-DeviceStateMachine.water_height = WaterHeight(ETAPE_CHANNEL, ETAPE_MOSFET_PIN, ETAPE_SLOPE, ETAPE_INTERCEPT, DB)
-DeviceStateMachine.water_temp = WaterTemp(DB)
-DeviceStateMachine.sleep = Sleep(CYCLE_DURATION, FILL_FLAG_PATH)
-
-device_state_machine = DeviceStateMachine()

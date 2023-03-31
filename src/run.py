@@ -1,5 +1,5 @@
 from parameters import LOG_FILENAME, CYCLE_DURATION, DB_FILENAME
-from devices import device_state_machine
+from state_machine import device_state_machine
 import logging
 
 
