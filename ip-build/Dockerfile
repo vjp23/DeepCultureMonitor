@@ -1,10 +1,10 @@
 FROM python:3.9-bullseye
 
 COPY ip-build/requirements.txt .
-COPY ip-build/pip.conf /etc/
 
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN printf '[global]\nextra-index-url=https://www.piwheels.org/simple' >> /etc/pip.conf && \
+    pip3 install --upgrade pip && \
+    pip3 install --no-cache-dir -r requirements.txt
 
 ENV LOG_FILENAME=/data/logs/ip_logs.log \
     UPDATE_IP_EVERY=30 \
