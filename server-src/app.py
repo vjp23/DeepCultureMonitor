@@ -19,7 +19,11 @@ logging.basicConfig(format='%(asctime)s %(message)s', filename=parms.LOG_FILENAM
 
 def _read_all_sensor_data(hours=24):
     all_raw = DB.read_all_since(since=datetime.now(ZoneInfo(parms.TIME_ZONE)) - timedelta(hours=hours))
-    data_dict = utils.unpack_all(all_values=all_raw, from_format=TIME_FMT, as_json_str=True)
+    data_dict = utils.unpack_all(all_values=all_raw,
+                                 from_fmt=TIME_FMT,
+                                 to_fmt="ISO",
+                                 from_tz=parms.TIME_ZONE,
+                                 as_json=True)
     return data_dict
 
 
@@ -41,7 +45,7 @@ def index():
                                            ec_data=plot_values['ec'],
                                            temp_data=plot_values['water_temp_f'],
                                            level_data=plot_values['water_gallons'],
-                                           timezone="'" + parms.TIME_ZONE + "'")
+                                           timezone='"' + parms.TIME_ZONE + '"')
 
 
 @app.route("/api_data", methods=['POST', 'GET'])

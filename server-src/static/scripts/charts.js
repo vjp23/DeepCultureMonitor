@@ -9,13 +9,38 @@ new Chart(document.getElementById("ph-chart"), {
     ]
   },
   options: {
-    title: {
-      display: true,
-      text: 'Nutrient Solution pH'
-    },
     plugins: {
       legend: {
         display: false
+      },
+      title: {
+        display: true,
+        text: 'Nutrient Solution pH'
+      },
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+            speed: 0.025
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'xy',
+        },
+        pan: {
+          enabled: true
+        },
+        limits: {
+          x: {
+            min: 'original',
+            max: 'original'
+          },
+          y: {
+            min: 'original',
+            max: 'original'
+          }
+        }
       }
     },
     scales: {
@@ -61,13 +86,38 @@ new Chart(document.getElementById("ec-chart"), {
     ]
   },
   options: {
-    title: {
-      display: true,
-      text: 'Nutrient Solution EC (PPM)'
-    },
     plugins: {
       legend: {
         display: false
+      },
+      title: {
+        display: true,
+        text: 'Nutrient Solution EC (PPM)'
+      },
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+            speed: 0.025
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'xy',
+        },
+        pan: {
+          enabled: true
+        },
+        limits: {
+          x: {
+            min: 'original',
+            max: 'original'
+          },
+          y: {
+            min: 'original',
+            max: 'original'
+          }
+        }
       }
     },
     scales: {
@@ -100,7 +150,6 @@ new Chart(document.getElementById("ec-chart"), {
 new Chart(document.getElementById("temp-chart"), {
   type: 'line',
   data: {
-    // labels: temp_x,
     datasets: [{ 
         data: temp_data,
         borderColor: "#FF7F50",
@@ -109,13 +158,38 @@ new Chart(document.getElementById("temp-chart"), {
     ]
   },
   options: {
-    title: {
-      display: true,
-      text: 'Water Temperature (°F)'
-    },
     plugins: {
       legend: {
         display: false
+      },
+      title: {
+        display: true,
+        text: 'Water Temperature (°F)'
+      },
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+            speed: 0.025
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'xy',
+        },
+        pan: {
+          enabled: true
+        },
+        limits: {
+          x: {
+            min: 'original',
+            max: 'original'
+          },
+          y: {
+            min: 'original',
+            max: 'original'
+          }
+        }
       }
     },
     scales: {
@@ -148,7 +222,6 @@ new Chart(document.getElementById("temp-chart"), {
 new Chart(document.getElementById("level-chart"), {
   type: 'line',
   data: {
-    // labels: level_x,
     datasets: [{ 
         data: level_data,
         borderColor: "#CCCCFF",
@@ -157,13 +230,38 @@ new Chart(document.getElementById("level-chart"), {
     ]
   },
   options: {
-    title: {
-      display: true,
-      text: 'Water Level (gallons)'
-    },
     plugins: {
       legend: {
         display: false
+      },
+      title: {
+        display: true,
+        text: 'Water Level (gallons)'
+      },
+      zoom: {
+        zoom: {
+          wheel: {
+            enabled: true,
+            speed: 0.025
+          },
+          pinch: {
+            enabled: true
+          },
+          mode: 'xy',
+        },
+        pan: {
+          enabled: true
+        },
+        limits: {
+          x: {
+            min: 'original',
+            max: 'original'
+          },
+          y: {
+            min: 'original',
+            max: 'original'
+          }
+        }
       }
     },
     scales: {
