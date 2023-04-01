@@ -11,7 +11,7 @@ import sys
 import os
 
 
-class SolenoidDevice(object):
+class SolenoidDevice:
     def __init__(self, pin, fail_open=True):
         # By "fail open," we refer to the state of the circuit, not the solenoid
         self.output = MOSFETSwitchDevice(pin=pin, fail_open=fail_open)
@@ -23,7 +23,7 @@ class SolenoidDevice(object):
         self.output.off()
 
 
-class MOSFETSwitchDevice(object):
+class MOSFETSwitchDevice:
     def __init__(self, pin, fail_open=True):
         self.mosfet = DigitalOutputDevice(pin=pin,
                                           active_high=True,
@@ -46,7 +46,7 @@ class MOSFETSwitchDevice(object):
         self.mosfet.off()
 
 
-class PeristalticPumpDevice(object):
+class PeristalticPumpDevice:
     def __init__(self, forward_pin, backward_pin, speed=0.5, mL_per_min=100):
         self.pump = Motor(forward_pin, backward_pin)
         self.speed = speed
@@ -105,7 +105,7 @@ class AtlasSensor:
         raise SystemError(f'There is a problem communicating with the {self.name} sensor. {attempts} attempts failed.')
 
 
-class WaterHeightSensor(object):
+class WaterHeightSensor:
     def __init__(self, channel, mosfet_pin, slope=1, intercept=0):
         self.voltage = -1
         self.slope = slope
@@ -150,7 +150,7 @@ class WaterHeightSensor(object):
         return gallons
 
 
-class TempSensor(object):
+class TempSensor:
     def __init__(self):
         self.sensor = W1ThermSensor()
 

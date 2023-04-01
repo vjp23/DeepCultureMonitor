@@ -17,7 +17,7 @@ DB = DeviceDatabaseHandler(parms.DB_NAME)
 logging.basicConfig(format='%(asctime)s %(message)s', filename=parms.LOG_FILENAME, level=logging.INFO)
 
 
-def _read_all_sensor_data(hours=24):
+def _read_all_sensor_data(hours=48):
     all_raw = DB.read_all_since(since=datetime.now(ZoneInfo(parms.TIME_ZONE)) - timedelta(hours=hours))
     data_dict = utils.unpack_all(all_values=all_raw,
                                  from_fmt=TIME_FMT,
