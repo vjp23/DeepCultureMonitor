@@ -183,6 +183,17 @@ class StateMachine:
 
 
 class DeviceStateMachine(StateMachine):
+    # Initialize static variables
+    ph = pH(prm.PH_ADDRESS, DB)
+    ec = EC(prm.EC_ADDRESS, DB)
+    water_height = WaterHeight(prm.ETAPE_CHANNEL, 
+                               prm.ETAPE_MOSFET_PIN,
+                               prm.ETAPE_SLOPE,
+                               prm.ETAPE_INTERCEPT,
+                               DB)
+    water_temp = WaterTemp(DB)
+    sleep = Sleep(prm.CYCLE_DURATION, prm.FILL_FLAG_PATH)
+
     def __init__(self):
         super().__init__(DeviceStateMachine.ph)
 
@@ -191,16 +202,5 @@ class DeviceStateMachine(StateMachine):
         self.current_state = self.initial_state
         while self.current_state is not None:
             self.step()
-
-# Initialize static variables
-DeviceStateMachine.ph = pH(prm.PH_ADDRESS, DB)
-DeviceStateMachine.ec = EC(prm.EC_ADDRESS, DB)
-DeviceStateMachine.water_height = WaterHeight(prm.ETAPE_CHANNEL, 
-                                              prm.ETAPE_MOSFET_PIN,
-                                              prm.ETAPE_SLOPE,
-                                              prm.ETAPE_INTERCEPT,
-                                              DB)
-DeviceStateMachine.water_temp = WaterTemp(DB)
-DeviceStateMachine.sleep = Sleep(prm.CYCLE_DURATION, prm.FILL_FLAG_PATH)
 
 device_state_machine = DeviceStateMachine()
