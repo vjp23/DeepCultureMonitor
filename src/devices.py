@@ -47,33 +47,26 @@ class MOSFETSwitchDevice:
 
 
 class PeristalticPumpDevice:
-    def __init__(self, forward_pin, backward_pin, speed=0.5, mL_per_min=100):
-        self.pump = Motor(forward_pin, backward_pin)
-        self.speed = speed
+    def __init__(self, forward_pin, mL_per_min=59.4075):
+        self.pump_io = DigitalOutputDevice(forward_pin)
         self.rate = mL_per_min / 60
 
     def __del__(self):
         try:
-            self.pump.stop()
+            self.pump_io.off()
         except DeviceClosed:
             pass
 
     def prime(self, prime_time=10):
         self.run(run_time=prime_time)
 
-    def empty(self, empty_time=10):
-        self.run(run_time=empty_time, reverse=True)
-
-    def dispense(self, mL):
+    def dose(self, mL):
         run_time = mL / self.rate
         self.run(run_time=run_time)
 
-    def run(self, run_time, reverse=False):
+    def run(self, run_time):
         try:
-            if reverse:
-                self.pump.backward(self.speed)
-            else:
-                self.pump.forward(self.speed)
+            self.self.pump_io.value = 1
             time.sleep(run_time)
         finally:
             self.pump.stop()

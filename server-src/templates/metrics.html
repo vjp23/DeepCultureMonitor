@@ -5,12 +5,12 @@
 <!-- Latest-data metric cards -->
 <div class="columns is-mobile is-multiline">
   <div class="column">
-    <div class="box nowrap">
+    <div class="box nowrap" id="phBox">
       pH: {{ ph }}
     </div>
   </div>
   <div class="column">
-    <div class="box nowrap">
+    <div class="box nowrap" id="ecBox">
       EC: {{ ppm }} PPM
     </div>
   </div>
@@ -20,7 +20,7 @@
     </div>
   </div>
   <div class="column">
-    <div class="box nowrap">
+    <div class="box nowrap" id="levelBox">
       Water Level: {{ gallons }} gallons
     </div>
   </div>
@@ -53,6 +53,158 @@
           <canvas id="level-chart"></canvas>
         </div>
     </div>
+  </div>
+</div>
+
+<!-- PH Modal -->
+<div class="modal" id="phModal">
+  <div class="modal-background"></div>
+  <div class="modal-card" style="width:350px">
+    <section class="modal-card-body ph-modal-body">
+      <h3 class="title is-3">pH Controls</h3>
+      <div class="field">
+        <label class="label">Dispense pH Up</label>
+      </div>
+      <div class="field has-addons" style="width:150px">
+        <div class="control">
+          <a class="button is-info" disabled id="ph-up-minus">
+            -
+          </a>
+        </div>
+        <div class="control">
+          <input class="input" type="text" placeholder="0 mL">
+        </div>
+        <div class="control">
+          <a class="button is-info" id="ph-up-plus">
+            +
+          </a>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Dispense pH Down</label>
+      </div>
+      <div class="field has-addons" style="width:150px">
+        <div class="control">
+          <a class="button is-danger" disabled id="ph-down-minus">
+            -
+          </a>
+        </div>
+        <div class="control">
+          <input class="input" type="text" placeholder="0 mL">
+        </div>
+        <div class="control">
+          <a class="button is-danger" id="ph-down-plus">
+            +
+          </a>
+        </div>
+      </div>
+    </section>
+    <footer class="modal-card-foot">
+      <button class="button is-danger" id="dispense-ph-button" role="button">Dispense</button>
+      <button class="button is-outline" data-bulma-modal="close">Cancel</button>
+    </footer>   
+  </div>
+</div>
+
+<!-- EC Modal -->
+<div class="modal" id="ecModal">
+  <div class="modal-background"></div>
+  <div class="modal-card" style="width:350px">
+    <section class="modal-card-body ec-modal-body">
+      <h3 class="title is-3">Nutrient Controls</h3>
+      <div class="field">
+        <label class="label">Dispense FloraMicro</label>
+      </div>
+      <div class="field has-addons" style="width:150px">
+        <div class="control">
+          <a class="button is-danger" disabled id="ec-one-minus">
+            -
+          </a>
+        </div>
+        <div class="control">
+          <input class="input" type="text" placeholder="0 mL">
+        </div>
+        <div class="control">
+          <a class="button is-danger" id="ec-one-plus">
+            +
+          </a>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Dispense FloraBloom</label>
+      </div>
+      <div class="field has-addons" style="width:150px">
+        <div class="control">
+          <a class="button is-danger is-light" disabled id="ec-two-minus">
+            -
+          </a>
+        </div>
+        <div class="control">
+          <input class="input" type="text" placeholder="0 mL">
+        </div>
+        <div class="control">
+          <a class="button is-danger is-light" id="ec-two-plus">
+            +
+          </a>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Dispense CALiMAGic</label>
+      </div>
+      <div class="field has-addons" style="width:150px">
+        <div class="control">
+          <a class="button is-primary" disabled id="ec-three-minus">
+            -
+          </a>
+        </div>
+        <div class="control">
+          <input class="input" type="text" placeholder="0 mL">
+        </div>
+        <div class="control">
+          <a class="button is-primary" id="ec-three-plus">
+            +
+          </a>
+        </div>
+      </div>
+    </section>
+    <footer class="modal-card-foot">
+      <button class="button is-danger" id="dispense-ec-button" role="button">Dispense</button>
+      <button class="button is-outline" data-bulma-modal="close">Cancel</button>
+    </footer>   
+  </div>
+</div>
+
+<!-- Level Modal -->
+<div class="modal" id="levelModal">
+  <div class="modal-background"></div>
+  <div class="modal-card" style="width:350px">
+    <section class="modal-card-body level-modal-body">
+      <h3 class="title is-3">Water Level Controls</h3>
+      <div class="field">
+        <label class="label">Add Water</label>
+      </div>
+      <div class="field has-addons" style="width:150px">
+        <div class="control">
+          <a class="button is-info" id="level-minus">
+            -
+          </a>
+        </div>
+        <div class="control">
+          <input class="input" type="text" placeholder="0 gal">
+        </div>
+        <div class="control">
+          <a class="button is-info" id="level-plus">
+            +
+          </a>
+        </div>
+      </div>
+      <button class="button is-info" id="fill-button" role="button" style="width:75px">Fill</button>
+      <button class="button is-info is-outlined" id="drain-button" role="button" style="width:75px">Drain</button>
+    </section>
+    <footer class="modal-card-foot">
+      <button class="button is-danger" id="dispense-level-button" role="button">Confirm</button>
+      <button class="button is-outlined" data-bulma-modal="close">Cancel</button>
+    </footer>   
   </div>
 </div>
 
