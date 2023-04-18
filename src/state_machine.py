@@ -89,8 +89,8 @@ class EC(DeviceState):
 
 
 class WaterHeight(DeviceState):
-    def __init__(self, channel, mosfet_pin, slope, intercept, database):
-        device = WaterHeightSensor(channel=channel, mosfet_pin=mosfet_pin, slope=slope, intercept=intercept)
+    def __init__(self, channel, slope, intercept, database):
+        device = WaterHeightSensor(channel=channel, slope=slope, intercept=intercept)
         super().__init__(name="water_height", device=device, database=database)
 
     def run(self):
