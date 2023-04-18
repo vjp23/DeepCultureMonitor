@@ -2,25 +2,13 @@ import adafruit_ads1x15.ads1015 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
 from atlas_i2c import sensors, commands
 from w1thermsensor import W1ThermSensor, Unit
-from gpiozero import DigitalOutputDevice, Motor, DeviceClosed
+from gpiozero import DigitalOutputDevice, DeviceClosed
 import board
 import busio
 import statistics
 import time
 import sys
 import os
-
-
-class SolenoidDevice:
-    def __init__(self, pin, fail_open=True):
-        # By "fail open," we refer to the state of the circuit, not the solenoid
-        self.output = MOSFETSwitchDevice(pin=pin, fail_open=fail_open)
-
-    def open(self):
-        self.output.on()
-
-    def close(self):
-        self.output.off()
 
 
 class MOSFETSwitchDevice:
@@ -46,30 +34,40 @@ class MOSFETSwitchDevice:
         self.mosfet.off()
 
 
+class SolenoidDevice:
+    def __init__(self, pin, fail_open=True):
+        # By "fail open," we refer to the state of the circuit, not the solenoid
+        self.output = MOSFETSwitchDevice(pin=pin, fail_open=fail_open)
+
+    def open(self):
+        self.output.on()
+
+    def close(self):
+        self.output.off()
+
+
 class PeristalticPumpDevice:
-    def __init__(self, forward_pin, mL_per_min=59.4075):
-        self.pump_io = DigitalOutputDevice(forward_pin)
-        self.rate = mL_per_min / 60
+    def __init__(self, pin, ml_per_min=59.4075):
+        self.pump = MOSFETSwitchDevice(pin, fail_open=True)
+        self.rate = ml_per_min / 60
 
     def __del__(self):
-        try:
-            self.pump_io.off()
-        except DeviceClosed:
-            pass
+        self.pump.off()
 
-    def prime(self, prime_time=10):
-        self.run(run_time=prime_time)
+    def prime(self, run_time=5):
+        # Alias for run() but with a default run_time
+        self.run(run_time=run_time)
 
-    def dose(self, mL):
-        run_time = mL / self.rate
+    def dose(self, ml):
+        run_time = ml / self.rate
         self.run(run_time=run_time)
 
     def run(self, run_time):
         try:
-            self.self.pump_io.value = 1
+            self.pump.on()
             time.sleep(run_time)
         finally:
-            self.pump.stop()
+            self.pump.off()
 
 
 class AtlasSensor:
@@ -99,13 +97,10 @@ class AtlasSensor:
 
 
 class WaterHeightSensor:
-    def __init__(self, channel, mosfet_pin, slope=1, intercept=0):
+    def __init__(self, channel, slope=1, intercept=0):
         self.voltage = -1
         self.slope = slope
         self.intercept = intercept
-
-        # Use a MOSFET controller to turn the sensor voltage off between readings to avoid zapping the pH sensor
-        self.mosfet = MOSFETSwitchDevice(mosfet_pin)
 
         # Create the I2C bus
         i2c = busio.I2C(board.SCL, board.SDA)
@@ -116,19 +111,17 @@ class WaterHeightSensor:
 
         self.chan = AnalogIn(ads, input_chan)
 
-    def read_voltage(self, num_samples=75):
-        self.mosfet.on()
+    def read_voltage(self, num_samples=25, num_trials=8):
+        # Return the mean of num_trials medians of num_samples samples
+        sample_medians = []
+        for _ in range(num_trials):
+            samples = []
+            for _ in range(num_samples):
+                samples.append(self.chan.voltage)
+                time.sleep(0.005)
+            sample_medians.append(statistics.median(samples))
 
-        time.sleep(0.25)
-
-        samples = []
-        for _ in range(num_samples):
-            samples.append(self.chan.voltage)
-            time.sleep(0.0025)
-
-        self.mosfet.off()
-
-        return statistics.median(samples)
+        return sum(sample_medians) / num_trials
 
     def _voltage_to_gallons(self, voltage):
         return round(max(self.slope * voltage + self.intercept, 0), 1)

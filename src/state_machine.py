@@ -186,8 +186,7 @@ class DeviceStateMachine(StateMachine):
     # Initialize static variables
     ph = pH(prm.PH_ADDRESS, DB)
     ec = EC(prm.EC_ADDRESS, DB)
-    water_height = WaterHeight(prm.ETAPE_CHANNEL, 
-                               prm.ETAPE_MOSFET_PIN,
+    water_height = WaterHeight(prm.ETAPE_CHANNEL,
                                prm.ETAPE_SLOPE,
                                prm.ETAPE_INTERCEPT,
                                DB)
