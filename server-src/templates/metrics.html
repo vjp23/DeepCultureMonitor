@@ -1,5 +1,11 @@
 {% extends 'layout.html' %}
 {% block content %}
+
+<script>
+  /* Update endpoint variable */
+  const postEndpoint = '{{ post_endpoint }}'
+</script>
+
 <h1 class="title has-text-centered">Deep Water Culture System Metrics</h1>
 
 <!-- Latest-data metric cards -->
@@ -204,6 +210,20 @@
     <footer class="modal-card-foot">
       <button class="button is-danger" id="dispense-level-button" role="button">Confirm</button>
       <button class="button is-outlined" data-bulma-modal="close">Cancel</button>
+    </footer>   
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal" id="confirmModal">
+  <div class="modal-background"></div>
+  <div class="modal-card">
+    <section class="modal-card-body">
+      <p>Do the thing?</p>
+    </section>
+    <footer class="modal-card-foot">
+      <a class="button is-danger confirm-button" role="button">Confirm</a>
+      <button class="button is-outline" data-bulma-modal="close">Cancel</button>
     </footer>   
   </div>
 </div>

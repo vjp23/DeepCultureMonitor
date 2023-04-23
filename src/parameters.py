@@ -8,4 +8,4 @@ CYCLE_DURATION = 900
 
 DB_FILENAME = "/data/db/device_data.db"
 LOG_FILENAME = "/data/logs/device_job.log"
-FILL_FLAG_PATH = "/data/flags/fill_flag.json"
+FLAG_PATH = "/data/flags/request_flags.json"

@@ -9,7 +9,7 @@ import sys
 import os
 sys.path.append(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')))
 from db.database import DeviceDatabaseHandler, TIME_FMT
-from flags.flag_utils import set_flag
+from flags.flag_utils import read_flag, set_flag
 
 app = Flask(__name__)
 
@@ -45,7 +45,8 @@ def index():
                                            ec_data=plot_values['ec'],
                                            temp_data=plot_values['water_temp_f'],
                                            level_data=plot_values['water_gallons'],
-                                           timezone='"' + parms.TIME_ZONE + '"')
+                                           timezone='"' + parms.TIME_ZONE + '"',
+                                           post_endpoint=url_for("device_request"))
 
 
 @app.route("/api_data", methods=['POST', 'GET'])
@@ -71,14 +72,49 @@ def api():
     return jsonify(data)
 
 
-@app.route("/fill_tank")
-def fill_tank():
+@app.route("/make_request", methods=['POST', 'GET'])
+def device_request():
+    """
+    Flag JSON/dict format:
+    {device_name: {"status": status, "action": action, "value": value}, ...}
+
+    Valid device names:
+        - "ph"
+        - "ec"
+        - "level"
+
+    Valid status values:
+        - "request": Web server sets this value when requesting an action
+        - "fulfilling": Device server sets this value when taking the action
+        - "fulfilled": Device server sets this value when finished the action
+        - "failed": Device server sets this value when the action fails
+
+    Valid action names:
+        - "ph" device
+            + "up" to dispense "value" ml of ph up 
+            + "down" to dispense "value" ml of ph down
+        - "ec" device
+            + "nute1" to dispense "value" ml of nutrient 1 (pump3)
+            + "nute2" to dispense "value" ml of nutrient 2 (pump4)
+            + "nute3" to dispense "value" ml of nutrient 3 (pump5)
+            + "nute4" to dispense "value" ml of nutrient 4 (pump6)
+        - "level" device
+            + "set" to fill/drain to "set" gallons
+            + "fill" to add "value" gallons
+            + "drain" to drain out "value" gallons
+    """
+    request_data = request.get_json() or dict()
+    flag, _ = read_flag(parms.FLAG_PATH)
+
+    for flag_name in request_data:
+        flag[flag_name]["status"] = "request"
+        flag[flag_name]["action"] = request_data[flag_name]["action"]
+        flag[flag_name]["value"] = request_data[flag_name]["value"]
+
     try:
-        logging.info('Fill tank request receieved.')
-        set_flag(parms.FILL_FLAG_PATH, 1)
-        logging.info('Fill flag set to 1.')
+        set_flag(parms.FLAG_PATH, flag)
         success = True
-        message = 'Fill flag set successfully.'
+        message = 'Request flag set successfully.'
 
     except Exception as e:
         success = False

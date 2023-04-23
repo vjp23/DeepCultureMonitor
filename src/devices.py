@@ -67,6 +67,7 @@ class PeristalticPumpDevice:
             self.pump.on()
             time.sleep(run_time)
         finally:
+            # No matter what happens, ensure that we stop pumping
             self.pump.off()
 
 

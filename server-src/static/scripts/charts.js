@@ -80,14 +80,15 @@ const createChart = (chart_element_id, dataset, border_color, title, y_min, y_ma
 class phModalBox {
     constructor(selector) {
         this.elem = document.querySelector(selector);
-        this.dispenseButton = document.querySelector('.modal-card-foot .dispense-ph-button');
+        this.dispenseButton = document.querySelector('#dispense-ph-button');
         this.bodyText = document.querySelector('.ph-modal-body p')
-        this.setupCloseButtons();
+        this.setupButtons();
+        this.req_names = ["ph"];
+        this.actions = ["up"];
+        this.values = [0.5];
     }
     
     show() {
-        // this.updateDispenseButton(callId, vmFile, page);
-        // this.bodyText.textContent = `Permanently delete this voicemail from ${vmFrom}?`;
         this.elem.classList.toggle('is-active');
         this.onShow()
     }
@@ -97,21 +98,23 @@ class phModalBox {
         this.onClose();
     }
     
-    setupCloseButtons() {
+    setupButtons() {
         const modalClose = this.elem.querySelectorAll("[data-bulma-modal='close'], .modal-background");
         const that = this;
         modalClose.forEach((e) => {
-            e.addEventListener("click", () => {
-                that.elem.classList.toggle('is-active');
-                const event = new Event('modal:close');
-                that.elem.dispatchEvent(event);
-            })
-        })
+          e.addEventListener("click", () => {
+              that.elem.classList.toggle('is-active');
+              const event = new Event('modal:close');
+              that.elem.dispatchEvent(event);
+          })
+        });
+        this.dispenseButton.addEventListener("click", () => {
+          this.elem.classList.toggle('is-active');
+          const event = new Event('modal:close');
+          this.elem.dispatchEvent(event);
+          confirmModal.show(this.req_names, this.actions, this.values);
+        });
     }
-
-    // updateDispenseButton(callId, vmFile, page) {
-    //     this.dispenseButton.href = `/deletevoicemail/${callId}/${vmFile}/${page}`;
-    // }
     
     onShow() {
         const event = new Event('modal:show');
@@ -230,6 +233,74 @@ class levelModalBox {
     }
 };
 
+class confirmModalBox {
+    constructor(selector, postEndpoint) {
+        this.elem = document.querySelector(selector);
+        this.confirmButton = document.querySelector('.modal-card-foot .confirm-button');
+        this.bodyText = document.querySelector('.modal-card-body p')
+        this.postEndpoint = postEndpoint
+        this.setupButtons();
+    }
+    
+    show(deviceNames, actions, values) {
+      var postData = {};
+      deviceNames.forEach((name, i) => postData[name] = {"action": actions[i], "value": values[i]});
+      this.postData = postData;
+      this.bodyText.textContent = `Are you sure you want to take this action?`;
+      this.elem.classList.toggle('is-active');
+      this.onShow()
+    }
+
+    close() {
+        this.elem.classList.toggle('is-active');
+        this.onClose();
+    }
+    
+    setupButtons() {
+        const modalClose = this.elem.querySelectorAll("[data-bulma-modal='close'], .modal-background");
+        this.confirmButton.addEventListener("click", () => {
+          this.sendFlagPost();
+        });
+        const that = this;
+        modalClose.forEach((e) => {
+            e.addEventListener("click", () => {
+                that.elem.classList.toggle('is-active');
+                const event = new Event('modal:close');
+                that.elem.dispatchEvent(event);
+            })
+        })
+    }
+
+    sendFlagPost() {
+        let method = 'POST'
+        return fetch(this.postEndpoint, {
+            'method': method,
+            'headers': {
+                "Content-Type": "application/json"
+            },
+            'body': JSON.stringify(this.postData)
+        })
+        .then(response => {
+            if (response.status === 200) {
+              // Just close the modal :)
+              this.elem.classList.toggle('is-active');
+              const event = new Event('modal:close');
+              this.elem.dispatchEvent(event);
+            };
+        });
+    }
+    
+    onShow() {
+        const event = new Event('modal:show');
+        this.elem.dispatchEvent(event);
+    }
+    
+    onClose() {
+        const event = new Event('modal:close');
+        this.elem.dispatchEvent(event);
+    }
+};
+
 const el_ids = ["ph-chart", "ec-chart", "temp-chart", "level-chart"]
 const data = [ph_data, ec_data, temp_data, level_data]
 const colors = ["#DE3163", "#9FE2BF", "#FF7F50", "#CCCCFF"]
@@ -245,6 +316,8 @@ var _ = el_ids.map(function(e, i) {
 const phModal = new phModalBox("#phModal");
 const ecModal = new ecModalBox("#ecModal");
 const levelModal = new ecModalBox("#levelModal");
+const confirmModal = new confirmModalBox("#confirmModal", postEndpoint)
+
 document.querySelector("#phBox").addEventListener("click", e => {
     phModal.show();}
 );

@@ -47,19 +47,18 @@ class pH(DeviceState):
             ph = round(float(self.value), 2)
 
             self.db.write_value("ph", ph)
-
             logging.info(f"pH: {ph}")
-            return True
+
+            return ph
 
         except SystemError as e:
             logging.error(f"Sensor read error for {self.name}: " + str(e))
-
             self.db.write_error(self.name, str(e))
 
-            return False
+            return 0
 
     def next(self, result):
-        return DeviceStateMachine.ec
+        return SensorStateMachine.ec
 
 
 class EC(DeviceState):
@@ -73,19 +72,18 @@ class EC(DeviceState):
             ec = int(round(float(self.value) / 2))
 
             self.db.write_value("ec", ec)
-
             logging.info(f"EC: {ec}")
-            return True
+
+            return ec
 
         except SystemError as e:
             logging.error(f"Sensor read error for {self.name}: " + str(e))
-
             self.db.write_error(self.name, str(e))
 
-            return False
+            return 0
 
     def next(self, result):
-        return DeviceStateMachine.water_height
+        return SensorStateMachine.water_height
 
 
 class WaterHeight(DeviceState):
@@ -103,17 +101,17 @@ class WaterHeight(DeviceState):
 
             logging.info(f"Reservoir level: {gallons} gallons")
             logging.info(f"ETape Voltage: {voltage} volts")
-            return True
+
+            return gallons
 
         except SystemError as e:
             logging.error(f"Sensor read error for {self.name}: " + str(e))
-
             self.db.write_error(self.name, str(e))
 
-            return False
+            return 0
 
     def next(self, result):
-        return DeviceStateMachine.water_temp
+        return SensorStateMachine.water_temp
 
 
 class WaterTemp(DeviceState):
@@ -127,45 +125,15 @@ class WaterTemp(DeviceState):
             temp_f = self.value
 
             self.db.write_value("water_temp_f", temp_f)
-
             logging.info(f"Water temperature: {temp_f} degrees F")
-            return True
+
+            return temp_f
 
         except SystemError as e:
             logging.error(f"Sensor read error for {self.name}: " + str(e))
-
             self.db.write_error(self.name, str(e))
 
-            return False
-
-    def next(self, result):
-        return DeviceStateMachine.sleep
-
-
-class Sleep(State):
-    def __init__(self, cycle_duration=3600, fill_flag_path=''):
-        super().__init__(name="sleep")
-        self.last_cycle_start = time.time()
-        self.cycle_duration = cycle_duration
-        self.fill_flag_path = fill_flag_path
-
-    def _monitor(self, sleep_for, cycle_period=0.25):
-        stop_at = time.time() + sleep_for
-        while time.time() < stop_at:
-            try:
-                flag, set_at = read_flag(self.fill_flag_path)
-            except FileNotFoundError:
-                flag = 0
-            if flag:
-                logging.info('++++++++++++++++++++++++++++++!!!! FLAG SET !!!!++++++++++++++++++++++++++++++')
-                set_flag(self.fill_flag_path, 0)
-            time.sleep(cycle_period)
-
-    def run(self):
-        sleep_for = max(0, self.cycle_duration - (time.time() - self.last_cycle_start))
-        logging.info(f"Monitor for requests for {sleep_for} seconds...")
-        self._monitor(sleep_for)
-        self.last_cycle_start = time.time()
+            return 0
 
     def next(self, _):
         return None
@@ -177,12 +145,14 @@ class StateMachine:
         self.current_state = initial_state
 
     def step(self):
-        logging.info("Step: " + str(self.current_state))
+        current_state_name = str(self.current_state)
+        logging.info("Step: " + current_state_name)
         result = self.current_state.run()
+        self.results[current_state_name] = result
         self.current_state = self.current_state.next(result)
 
 
-class DeviceStateMachine(StateMachine):
+class SensorStateMachine(StateMachine):
     # Initialize static variables
     ph = pH(prm.PH_ADDRESS, DB)
     ec = EC(prm.EC_ADDRESS, DB)
@@ -191,15 +161,79 @@ class DeviceStateMachine(StateMachine):
                                prm.ETAPE_INTERCEPT,
                                DB)
     water_temp = WaterTemp(DB)
-    sleep = Sleep(prm.CYCLE_DURATION, prm.FILL_FLAG_PATH)
 
     def __init__(self):
-        super().__init__(DeviceStateMachine.ph)
+        super().__init__(SensorStateMachine.ph)
 
     def cycle(self):
         logging.info(">>>========= Begin new cycle =========<<<")
         self.current_state = self.initial_state
+        self.results = dict()
         while self.current_state is not None:
             self.step()
 
-device_state_machine = DeviceStateMachine()
+        return self.results
+
+
+class RequestMonitor(State):
+    def __init__(self, cycle_duration=900, flag_path='', sensor_machine=None):
+        self.name = "sleep"
+        self.file_err_flag = False
+        self.run_times = []
+        self.cycle_duration = cycle_duration
+        self.flag_path = flag_path
+        self.sensor_machine = sensor_machine
+        self.db = DB
+
+    def __str__(self):
+        return self.name
+
+    def _get_wait_time(self):
+        if len(self.run_times) >= 11:
+            # Once we've done at least 11 trials, start using a mean of medians
+            sorted_times = sorted(self.run_times)
+            mid_times = sorted_times[3:8]
+            mean_runtime = sum(mid_times) / len(mid_times)
+            return max(0, self.cycle_duration - (mean_runtime - self.cycle_duration))
+        else:
+            # Until then, just guess- like, 5 seconds or so?
+            return max(0, self.cycle_duration - 5)
+
+    def wait_for_requests(self, wait_for, sleep_time=0.25):
+        stop_at = time.time() + wait_for - sleep_time
+        while time.time() < stop_at:
+            try:
+                flag, set_at = read_flag(self.flag_path)
+            except FileNotFoundError:
+                # Use this flag to ensure we don't log this error 4 times a second :]
+                if not self.file_err_flag:
+                    logging.error(f'Flag file not found at {self.flag_path}!')
+                    self.file_err_flag = True
+                flag = dict()
+            self.process_flag_requests(flag)
+            time.sleep(sleep_time)
+
+    def _update_flag(self, flag, flag_name, key, value):
+        flag[flag_name][key] = value
+        set_flag(self.flag_path, flag)
+        return flag
+
+    def process_flag_requests(self, flag):
+        for flag_name in flag:
+            if flag[flag_name]['status'] == 'request':
+                self._update_flag(flag, flag_name, 'status', 'fulfilling')
+                
+                time.sleep(10)
+
+                self._update_flag(flag, flag_name, 'status', 'fulfilled')
+                # self.db.write_value(name, value)
+
+    def watch(self, sensor_data, cycle_time):
+        self.run_times = [cycle_time] + self.run_times[:10]
+        self.file_err_flag = False
+        wait_for = self._get_wait_time()
+        logging.info(f"Monitor for requests for {wait_for} seconds...")
+        self.wait_for_requests(wait_for)
+
+sensor_state_machine = SensorStateMachine()
+request_monitor = RequestMonitor(prm.CYCLE_DURATION, prm.FLAG_PATH, sensor_state_machine)
