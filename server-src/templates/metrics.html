@@ -78,7 +78,7 @@
           </a>
         </div>
         <div class="control">
-          <input class="input" type="text" placeholder="0 mL">
+          <input class="input" type="text" placeholder="0 mL" id="ph-up-text">
         </div>
         <div class="control">
           <a class="button is-info" id="ph-up-plus">
@@ -96,7 +96,7 @@
           </a>
         </div>
         <div class="control">
-          <input class="input" type="text" placeholder="0 mL">
+          <input class="input" type="text" placeholder="0 mL" id="ph-down-text">
         </div>
         <div class="control">
           <a class="button is-danger" id="ph-down-plus">
@@ -106,7 +106,7 @@
       </div>
     </section>
     <footer class="modal-card-foot">
-      <button class="button is-danger" id="dispense-ph-button" role="button">Dispense</button>
+      <button class="button is-danger" disabled id="dispense-ph-button" role="button">Dispense</button>
       <button class="button is-outline" data-bulma-modal="close">Cancel</button>
     </footer>   
   </div>
@@ -118,63 +118,85 @@
   <div class="modal-card" style="width:350px">
     <section class="modal-card-body ec-modal-body">
       <h3 class="title is-3">Nutrient Controls</h3>
+      <!-- EC One -->
+      <div class="field">
+        <label class="label">Dispense FloraGro</label>
+      </div>
+      <div class="field has-addons" style="width:150px">
+        <div class="control">
+          <a class="button is-primary" disabled id="ec-one-minus">
+            -
+          </a>
+        </div>
+        <div class="control">
+          <input class="input" type="text" id="ec-one-text" placeholder="0 mL">
+        </div>
+        <div class="control">
+          <a class="button is-primary" id="ec-one-plus">
+            +
+          </a>
+        </div>
+      </div>
+      <!-- EC Two -->
       <div class="field">
         <label class="label">Dispense FloraMicro</label>
       </div>
       <div class="field has-addons" style="width:150px">
         <div class="control">
-          <a class="button is-danger" disabled id="ec-one-minus">
+          <a class="button is-danger" disabled id="ec-two-minus">
             -
           </a>
         </div>
         <div class="control">
-          <input class="input" type="text" placeholder="0 mL">
+          <input class="input" type="text" id="ec-two-text" placeholder="0 mL">
         </div>
         <div class="control">
-          <a class="button is-danger" id="ec-one-plus">
+          <a class="button is-danger" id="ec-two-plus">
             +
           </a>
         </div>
       </div>
+      <!-- EC Three -->
       <div class="field">
         <label class="label">Dispense FloraBloom</label>
       </div>
       <div class="field has-addons" style="width:150px">
         <div class="control">
-          <a class="button is-danger is-light" disabled id="ec-two-minus">
+          <a class="button is-danger is-light" disabled id="ec-three-minus">
             -
           </a>
         </div>
         <div class="control">
-          <input class="input" type="text" placeholder="0 mL">
+          <input class="input" type="text" id="ec-three-text" placeholder="0 mL">
         </div>
         <div class="control">
-          <a class="button is-danger is-light" id="ec-two-plus">
+          <a class="button is-danger is-light" id="ec-three-plus">
             +
           </a>
         </div>
       </div>
+      <!-- EC Four -->
       <div class="field">
         <label class="label">Dispense CALiMAGic</label>
       </div>
       <div class="field has-addons" style="width:150px">
         <div class="control">
-          <a class="button is-primary" disabled id="ec-three-minus">
+          <a class="button is-light" disabled id="ec-four-minus">
             -
           </a>
         </div>
         <div class="control">
-          <input class="input" type="text" placeholder="0 mL">
+          <input class="input" type="text" id="ec-four-text" placeholder="0 mL">
         </div>
         <div class="control">
-          <a class="button is-primary" id="ec-three-plus">
+          <a class="button is-light" id="ec-four-plus">
             +
           </a>
         </div>
       </div>
     </section>
     <footer class="modal-card-foot">
-      <button class="button is-danger" id="dispense-ec-button" role="button">Dispense</button>
+      <button class="button is-danger" id="dispense-ec-button" disabled role="button">Dispense</button>
       <button class="button is-outline" data-bulma-modal="close">Cancel</button>
     </footer>   
   </div>
@@ -187,16 +209,16 @@
     <section class="modal-card-body level-modal-body">
       <h3 class="title is-3">Water Level Controls</h3>
       <div class="field">
-        <label class="label">Add Water</label>
+        <label class="label">Target Water Level</label>
       </div>
       <div class="field has-addons" style="width:150px">
         <div class="control">
-          <a class="button is-info" id="level-minus">
+          <a class="button is-info" id="level-minus" disabled>
             -
           </a>
         </div>
         <div class="control">
-          <input class="input" type="text" placeholder="0 gal">
+          <input class="input" type="text" id="level-text" placeholder="0 gal">
         </div>
         <div class="control">
           <a class="button is-info" id="level-plus">
@@ -208,7 +230,7 @@
       <button class="button is-info is-outlined" id="drain-button" role="button" style="width:75px">Drain</button>
     </section>
     <footer class="modal-card-foot">
-      <button class="button is-danger" id="dispense-level-button" role="button">Confirm</button>
+      <button class="button is-danger" id="dispense-level-button" disabled role="button">Confirm</button>
       <button class="button is-outlined" data-bulma-modal="close">Cancel</button>
     </footer>   
   </div>
@@ -219,7 +241,8 @@
   <div class="modal-background"></div>
   <div class="modal-card">
     <section class="modal-card-body">
-      <p>Do the thing?</p>
+      <p><b>Please confirm that you'd like to take this action:</b><br /><br /></p>
+      <p id="confirm-string">Do the thing?</p>
     </section>
     <footer class="modal-card-foot">
       <a class="button is-danger confirm-button" role="button">Confirm</a>
@@ -230,6 +253,7 @@
 
 <!-- Setup plot data from Flask -->
 <script>
+  const current_level = {{ gallons|safe }}
   const ph_data = {{ ph_data|safe }}
   const ec_data = {{ ec_data|safe }}
   const temp_data = {{ temp_data|safe }}
@@ -238,4 +262,5 @@
 </script>
 
 <script src="{{url_for('static', filename='scripts/charts.js')}}"></script>
+<script src="{{url_for('static', filename='scripts/dashboard-modals.js')}}"></script>
 {% endblock %}

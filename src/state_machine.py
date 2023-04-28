@@ -41,13 +41,14 @@ class pH(DeviceState):
         device = AtlasSensor(name="ph", address=address, max_attempts=3)
         super().__init__(name="ph", device=device, database=database)
 
-    def run(self):
+    def run(self, silent=False):
         try:
             self.value = self.device.read()
             ph = round(float(self.value), 2)
 
-            self.db.write_value("ph", ph)
-            logging.info(f"pH: {ph}")
+            if not silent:
+                self.db.write_value("ph", ph)
+                logging.info(f"pH: {ph}")
 
             return ph
 
@@ -66,13 +67,14 @@ class EC(DeviceState):
         device = AtlasSensor(name="ec", address=address, max_attempts=3)
         super().__init__(name="ec", device=device, database=database)
 
-    def run(self):
+    def run(self, silent=False):
         try:
             self.value = self.device.read()
             ec = int(round(float(self.value) / 2))
 
-            self.db.write_value("ec", ec)
-            logging.info(f"EC: {ec}")
+            if not silent:
+                self.db.write_value("ec", ec)
+                logging.info(f"EC: {ec}")
 
             return ec
 
@@ -91,16 +93,17 @@ class WaterHeight(DeviceState):
         device = WaterHeightSensor(channel=channel, slope=slope, intercept=intercept)
         super().__init__(name="water_height", device=device, database=database)
 
-    def run(self):
+    def run(self, silent=False):
         try:
             self.value = self.device.read(with_voltage=True)
             gallons, voltage = self.value
 
-            self.db.write_value("water_gallons", gallons)
-            self.db.write_value("water_height_volts", voltage)
+            if not silent:
+                self.db.write_value("water_gallons", gallons)
+                self.db.write_value("water_height_volts", voltage)
 
-            logging.info(f"Reservoir level: {gallons} gallons")
-            logging.info(f"ETape Voltage: {voltage} volts")
+                logging.info(f"Reservoir level: {gallons} gallons")
+                logging.info(f"ETape Voltage: {voltage} volts")
 
             return gallons
 
@@ -119,13 +122,14 @@ class WaterTemp(DeviceState):
         device = TempSensor()
         super().__init__(name="water_temp_f", device=device, database=database)
 
-    def run(self):
+    def run(self, silent=False):
         try:
             self.value = self.device.read()
             temp_f = self.value
 
-            self.db.write_value("water_temp_f", temp_f)
-            logging.info(f"Water temperature: {temp_f} degrees F")
+            if not silent:
+                self.db.write_value("water_temp_f", temp_f)
+                logging.info(f"Water temperature: {temp_f} degrees F")
 
             return temp_f
 
@@ -165,6 +169,18 @@ class SensorStateMachine(StateMachine):
     def __init__(self):
         super().__init__(SensorStateMachine.ph)
 
+    def query(self, device, silent=False):
+        device = device.lower()
+
+        if device == "ph":
+            return self.ph.run(silent=silent)
+        if device == "ec":
+            return self.ec.run(silent=silent)
+        if device == "level":
+            return self.water_height.run(silent=silent)
+
+        return None
+
     def cycle(self):
         logging.info(">>>========= Begin new cycle =========<<<")
         self.current_state = self.initial_state
@@ -175,29 +191,78 @@ class SensorStateMachine(StateMachine):
         return self.results
 
 
+class ReservoirSolenoid:
+    def __init__(self, pin, database):
+        self.device = SolenoidDevice(pin=pin, fail_open=True)
+        self.db = database
+        self.name = "solenoid"
+        self.value = 0
+
+    def __str__(self):
+        return self.name
+
+    def __del__(self):
+        try:
+            self.device.close()
+            self.value = 0
+        except:
+            pass
+
+    def open(self):
+        if self.value != 1:
+            try:
+                self.device.open()
+                self.value = 1
+
+                self.db.write_value("solenoid", 1)
+                logging.info(f"Solenoid open")
+
+            except Exception as e:
+                logging.error("Solenoid open error")
+                self.db.write_error(self.name, str(e))        
+
+    def close(self):
+        if self.value != 0:
+            try:
+                self.device.close()
+                self.value = 0
+
+                self.db.write_value("solenoid", 0)
+                logging.info(f"Solenoid closed")
+
+            except Exception as e:
+                logging.error("Solenoid close error")
+                self.db.write_error(self.name, str(e))
+
+
+class Controls:
+    def __init__(self, **kwargs):
+        ok_keys = {'solenoid', 'ph_up', 'ph_down', 'nute1', 'nute2', 'nute3', 
+                   'nute4', 'drain', 'topfeed', 'veg_light', 'bloom_light'}
+        self.__dict__.update((k, v) for k, v in kwargs.items() if k in ok_keys)
+
+
 class RequestMonitor(State):
-    def __init__(self, cycle_duration=900, flag_path='', sensor_machine=None):
+    def __init__(self, cycle_duration=900, flag_path='', sensors=None, controls=None):
         self.name = "sleep"
         self.file_err_flag = False
-        self.run_times = []
+        # At first, assume a 5-second runtime (but get better data over time)
+        self.run_times = [5] * 11
         self.cycle_duration = cycle_duration
         self.flag_path = flag_path
-        self.sensor_machine = sensor_machine
+        self.sensors = sensors
+        self.controls = controls
         self.db = DB
 
     def __str__(self):
         return self.name
 
     def _get_wait_time(self):
-        if len(self.run_times) >= 11:
-            # Once we've done at least 11 trials, start using a mean of medians
-            sorted_times = sorted(self.run_times)
-            mid_times = sorted_times[3:8]
-            mean_runtime = sum(mid_times) / len(mid_times)
-            return max(0, self.cycle_duration - (mean_runtime - self.cycle_duration))
-        else:
-            # Until then, just guess- like, 5 seconds or so?
-            return max(0, self.cycle_duration - 5)
+        sorted_times = sorted(self.run_times)
+        mid_times = sorted_times[3:8]
+        mean_runtime = sum(mid_times) / len(mid_times)
+        logging.info(f"Mean runtime: {round(mean_runtime, 3)} seconds")
+        return max(0, self.cycle_duration - mean_runtime)
 
     def wait_for_requests(self, wait_for, sleep_time=0.25):
         stop_at = time.time() + wait_for - sleep_time
@@ -213,22 +278,98 @@ class RequestMonitor(State):
             self.process_flag_requests(flag)
             time.sleep(sleep_time)
 
-    def _update_flag(self, flag, flag_name, key, value):
-        flag[flag_name][key] = value
+    def _update_flag(self, flag, device, action, key, value):
+        flag[device][action][key] = value
         set_flag(self.flag_path, flag)
         return flag
 
     def process_flag_requests(self, flag):
-        for flag_name in flag:
-            if flag[flag_name]['status'] == 'request':
-                self._update_flag(flag, flag_name, 'status', 'fulfilling')
-                
-                time.sleep(10)
+        new_requests = []
 
-                self._update_flag(flag, flag_name, 'status', 'fulfilled')
-                # self.db.write_value(name, value)
+        for device in flag:
+            for action, req in flag[device].items():
+                if req['status'] == 'request':
+                    logging.info(f"New request for {device}: {flag[device]}")
+                    new_requests.append((device, action, flag[device][action]['value']))
+
+        if new_requests:
+            plan = self._build_plan(new_requests)
+            self.execute_plan(plan, flag)
+
+    def _build_plan(self, new_requests):
+        """Here, we essentially just reorder the list of requests.
+
+        The order matters because some operations make sense only in one
+        serial direction, e.g. empyting a reservoir and then filling it, or
+        always adding FloraMicro before other nutrients.
+
+        Order algo:
+        1   Empty reservoir
+        2   Set reservoir water level
+        3   Fill reservoir
+        4   Dose FloraMicro
+        5-7 Dose other nutrients (arbitrary order)
+        8   Dose ph Up
+        9   Dose pH Down
+
+        O(n^2), triangular in n really, but n <= 9 so not worth optimizing :)
+        """
+        optimal_order = [('level', 'empty'), ('level', 'set'), 
+                         ('level', 'fill'), ('ec', 'nute2'), ('ec', 'nute1'), 
+                         ('ec', 'nute3'), ('ec', 'nute4'), ('ph', 'up'), 
+                         ('ph', 'down')]
+
+        plan = []
+        for device, action in optimal_order:
+            for req in new_requests:
+                req_device, req_action, _ = req
+                if device == req_device and action == req_action:
+                    plan.append(req)
+                    new_requests.remove(req)
+
+        return plan
+
+    def execute_plan(self, plan, flag):
+        for (device, action, value) in plan:
+            took_action = False
+            # Water level controls
+            if device == 'level':
+                # Start by getting the current water level
+                current = self.sensors.query('level', silent=True)
+
+                if (action == 'fill') or (action == 'set' and value > current):
+                    # Add water! :)
+                    try:
+                        while self.sensors.query('level', silent=True) < value:
+                            self.controls.solenoid.open()
+                            time.sleep(.05)
+
+                    finally:
+                        self.controls.solenoid.close()
+                        # Let stuff mix and settle for a few seconds
+                        time.sleep(10)
+                        took_action = True
+                        
+                elif (action == 'drain') or (action == 'set' and value < current):
+                    # Turn on the drain pump
+                    logging.info("Activate drain pump relay")
+                    pass
+
+            elif device == 'ec':
+                logging.info("EC plan executed :)")
+                pass
+            elif device == 'ph':
+                logging.info("pH plan executed :)")
+                pass
+
+            self._update_flag(flag, device, action, "status", "fulfilled")
+            # Refresh the sensor data before finishing this step
+        
+        if took_action:
+            self.sensors.cycle()
 
     def watch(self, sensor_data, cycle_time):
+        logging.info(f"Last sensor cycle took {round(cycle_time, 3)} seconds")
         self.run_times = [cycle_time] + self.run_times[:10]
         self.file_err_flag = False
         wait_for = self._get_wait_time()
@@ -236,4 +377,6 @@ class RequestMonitor(State):
         self.wait_for_requests(wait_for)
 
 sensor_state_machine = SensorStateMachine()
-request_monitor = RequestMonitor(prm.CYCLE_DURATION, prm.FLAG_PATH, sensor_state_machine)
+controls = Controls(solenoid=ReservoirSolenoid(prm.SOLENOID_PIN, DB))
+request_monitor = RequestMonitor(prm.CYCLE_DURATION, prm.FLAG_PATH, 
+                                 sensor_state_machine, controls)

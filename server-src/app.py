@@ -75,8 +75,61 @@ def api():
 @app.route("/make_request", methods=['POST', 'GET'])
 def device_request():
     """
-    Flag JSON/dict format:
-    {device_name: {"status": status, "action": action, "value": value}, ...}
+    Request JSON array format:
+    {[device_name: {"status": status, "action": action, "value": value}, ...]}
+
+    Flag format:
+    {device_name: {action: {'status': status, 'value': value}, ...}, ...}
+
+    Overall Format: 
+    flag[device][action]['status'] = status
+    flag[device][action]['value'] = val
+
+    Example:
+    {
+       "ec":{
+          "nute1":{
+             "status":"fulfilled",
+             "value":1
+          },
+          "nute2":{
+             "status":"fulfilled",
+             "value":12
+          },
+          "nute3":{
+             "status":"fulfilled",
+             "value":1
+          },
+          "nute4":{
+             "status":"fulfilled",
+             "value":1
+          }
+       },
+       "ph":{
+          "up":{
+             "status":"fulfilled",
+             "value":1
+          },
+          "down":{
+             "status":"fulfilled",
+             "value":1
+          }
+       },
+       "level":{
+          "set":{
+             "status":"fulfilled",
+             "value":1
+          },
+          "fill":{
+             "status":"fulfilled",
+             "value":1
+          },
+          "drain":{
+             "status":"fulfilled",
+             "value":1
+          }
+       }
+    }
 
     Valid device names:
         - "ph"
@@ -99,17 +152,25 @@ def device_request():
             + "nute3" to dispense "value" ml of nutrient 3 (pump5)
             + "nute4" to dispense "value" ml of nutrient 4 (pump6)
         - "level" device
-            + "set" to fill/drain to "set" gallons
+            + "set" to fill/drain to "value" gallons
             + "fill" to add "value" gallons
             + "drain" to drain out "value" gallons
+
+    This is an array to support multiple actions per device.
     """
     request_data = request.get_json() or dict()
-    flag, _ = read_flag(parms.FLAG_PATH)
 
-    for flag_name in request_data:
-        flag[flag_name]["status"] = "request"
-        flag[flag_name]["action"] = request_data[flag_name]["action"]
-        flag[flag_name]["value"] = request_data[flag_name]["value"]
+    try:
+        flag, _ = read_flag(parms.FLAG_PATH)
+    except FileNotFoundError:
+        flag = dict()
+
+    for req in request_data:
+        for device, device_req in req.items():
+            if device not in flag:
+                flag[device] = dict()
+            flag[device].update({device_req['action']: {'status': device_req['status'], 
+                                                        'value': device_req['value']}})
 
     try:
         set_flag(parms.FLAG_PATH, flag)
