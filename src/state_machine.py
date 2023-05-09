@@ -296,7 +296,7 @@ class Relay:
 class Controls:
     def __init__(self, **kwargs):
         ok_keys = {'solenoid', 'ph_up', 'ph_down', 'nute1', 'nute2', 'nute3', 
-                   'nute4', 'drain', 'topfeed', 'veg_light', 'bloom_light'}
+                   'nute4', 'drain', 'topfeed', 'veg_light', 'flower_light'}
         self.__dict__.update((k, v) for k, v in kwargs.items() if k in ok_keys)
 
 
@@ -480,8 +480,8 @@ controls = Controls(solenoid=ReservoirSolenoid(prm.SOLENOID_PIN, DB),
                     nute3=DosingPump("FloraBloom", prm.NUTE3PIN, prm.NUTE3RATE, DB),
                     nute4=DosingPump("CALiMAGic", prm.NUTE4PIN, prm.NUTE4RATE, DB),
                     drain=Relay(relays_device, 1, "Drain Pump", DB),
-                    topfeed=Relay(relays_device, 2, "Top Fee Pump", DB),
+                    topfeed=Relay(relays_device, 2, "Top Feed Pump", DB),
                     veg_light=Relay(relays_device, 3, "Veg Lights", DB),
-                    bloom_light=Relay(relays_device, 4, "Flower Lights", DB))
+                    flower_light=Relay(relays_device, 4, "Flower Lights", DB))
 request_monitor = RequestMonitor(prm.CYCLE_DURATION, prm.FLAG_PATH, 
                                  sensor_state_machine, controls)
