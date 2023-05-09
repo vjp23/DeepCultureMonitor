@@ -1,39 +1,38 @@
 class phModalBox {
 	constructor(selector) {
-		this.elem = document.querySelector(selector);
-		this.dispenseButton = document.querySelector('#dispense-ph-button');
-		this.bodyText = document.querySelector('.ph-modal-body p');
-		this.phUpText = document.querySelector('#ph-up-text');
-		this.phUpPlus = document.querySelector('#ph-up-plus');
-		this.phUpMinus = document.querySelector('#ph-up-minus');
-		this.phDownText = document.querySelector('#ph-down-text');
-		this.phDownPlus = document.querySelector('#ph-down-plus');
-		this.phDownMinus = document.querySelector('#ph-down-minus');
-		this.upAmount = 0;
-		this.downAmount = 0;
 		this.maxPhUp = 10;
 		this.maxPhDown = 10;
 		this.phIncrement = 0.5;
+		this.elem = document.querySelector(selector);
+		this.dispenseButton = document.querySelector('#dispense-ph-button');
+		this.bodyText = document.querySelector('.ph-modal-body p');
+		this.upControls = new controlButtonGrp('#ph-up-plus', '#ph-up-minus', '#ph-up-text', 0, this.maxPhUp, this.phIncrement, this.updateDispenseButton.bind(this));
+		this.downControls = new controlButtonGrp('#ph-down-plus', '#ph-down-minus', '#ph-down-text', 0, this.maxPhDown, this.phIncrement, this.updateDispenseButton.bind(this));
 		this.setupEvents();
 	}
 	
 	show() {
+		this.upControls.setValue(0);
+		this.downControls.setValue(0);
 		this.elem.classList.toggle('is-active');
 		this.onShow()
 	}
 	
 	close() {
-		this.upAmount = 0;
-		this.downAmount = 0;
-		this.phUpText.value = '';
-		this.phDownText.value = '';
-		this.phUpMinus.setAttribute('disabled', 'disabled');
-		this.phDownMinus.setAttribute('disabled', 'disabled');
-		this.dispenseButton.setAttribute('disabled', 'disabled');
-		this.phUpPlus.removeAttribute('disabled');
-		this.phDownPlus.removeAttribute('disabled');
 		this.elem.classList.toggle('is-active');
 		this.onClose();
+	}
+
+	changeRequested() {
+		return this.upControls.value + this.downControls.value > 0;
+	}
+
+	updateDispenseButton() {
+		if (this.changeRequested()) {
+			this.dispenseButton.removeAttribute('disabled');
+		} else {
+			this.dispenseButton.setAttribute('disabled', 'disabled');
+		};
 	}
 	
 	setupEvents() {
@@ -51,120 +50,29 @@ class phModalBox {
 			this.close();
 			confirmModal.show(requestData, confirmString);
 		});
-
-	  	// + and - buttons
-		this.phUpPlus.addEventListener("click", () => {
-			this.onPhUpPlus();
-		});
-
-		this.phUpMinus.addEventListener("click", () => {
-			this.onPhUpMinus();
-		});
-
-		this.phDownPlus.addEventListener("click", () => {
-			this.onPhDownPlus();
-		});
-
-		this.phDownMinus.addEventListener("click", () => {
-			this.onPhDownMinus();
-		});
-
-		this.phUpText.addEventListener("blur", () => {
-			this.upAmount = validateNumber(this.phUpText.value);
-			this.updateUp();
-		});
-
-		this.phDownText.addEventListener("blur", () => {
-			this.downAmount = validateNumber(this.phDownText.value);
-			this.updateDown();
-		});
-	}
-
-	onPhUpPlus() {
-		this.upAmount = Math.min(this.maxPhUp, this.upAmount + this.phIncrement);
-		this.updateUp();
-	}
-
-	onPhUpMinus() {
-		this.upAmount = Math.max(0, this.upAmount - this.phIncrement);
-		this.updateUp();
-	}
-
-	updateUp() {
-	  	// Clip values between 0 and this.maxPhUp, enable/disable buttons, etc
-		if (this.upAmount > 0) {
-			this.upAmount = Math.min(this.upAmount, this.maxPhUp);
-			if (this.upAmount == this.maxPhUp) {
-				this.phUpPlus.setAttribute('disabled', 'disabled');
-			} else {
-				this.phUpPlus.removeAttribute('disabled');
-			};
-			this.phUpMinus.removeAttribute('disabled');
-			this.dispenseButton.removeAttribute('disabled');
-			this.phUpText.value = this.upAmount;
-		} else {
-			this.phUpPlus.removeAttribute('disabled');
-			this.phUpMinus.setAttribute('disabled', 'disabled');
-			this.phUpText.value = '';
-			if (this.downAmount == 0) {
-				this.dispenseButton.setAttribute('disabled', 'disabled');
-			}
-		}
-	}
-
-	onPhDownPlus() {
-		this.downAmount = Math.min(this.maxPhDown, this.downAmount + this.phIncrement)
-		this.updateDown();
-	}
-
-	onPhDownMinus() {
-		this.downAmount = Math.max(0, this.downAmount - this.phIncrement);
-		this.updateDown();
-	}
-
-	updateDown() {
-	  	// Clip values between 0 and this.maxPhDown, enable/disable buttons, etc
-		if (this.downAmount > 0) {
-			this.downAmount = Math.min(this.downAmount, this.maxPhDown);
-			if (this.downAmount == this.maxPhDown) {
-				this.phDownPlus.setAttribute('disabled', 'disabled');
-			} else {
-				this.phDownPlus.removeAttribute('disabled');
-			};
-			this.phDownMinus.removeAttribute('disabled');
-			this.dispenseButton.removeAttribute('disabled');
-			this.phDownText.value = this.downAmount;
-		} else {
-			this.phDownPlus.removeAttribute('disabled');
-			this.phDownMinus.setAttribute('disabled', 'disabled');
-			this.phDownText.value = '';
-			if (this.upAmount == 0) {
-				this.dispenseButton.setAttribute('disabled', 'disabled');
-			}
-		}
 	}
 
 	makeRequest() {
 		let requestData = [];
 		let confirmString = '';
 
-		if (this.upAmount + this.downAmount > 0) {
-			if (this.upAmount > 0) {
+		if (this.changeRequested()) {
+			if (this.upControls.value > 0) {
 				let upRequest = {"ph": {"status": "request"}};
 				upRequest["ph"]["action"] = "up";
-				upRequest["ph"]["value"] = this.upAmount;
+				upRequest["ph"]["value"] = this.upControls.value;
 				requestData.push(upRequest);
-				confirmString += `Dispense ${this.upAmount} mL of pH Up`;
+				confirmString += `Dispense ${this.upControls.value} mL of pH Up`;
 			};
-			if (this.downAmount > 0) {
+			if (this.downControls.value > 0) {
 				let downRequest = {"ph": {"status": "request"}};
 				downRequest["ph"]["action"] = "down";
-				downRequest["ph"]["value"] = this.downAmount;
+				downRequest["ph"]["value"] = this.downControls.value;
 				requestData.push(downRequest);
 				if (confirmString.length > 0) {
 					confirmString += '<br />'
 				}
-				confirmString += `Dispense ${this.downAmount} mL of pH Down`
+				confirmString += `Dispense ${this.downControls.value} mL of pH Down`
 			}
 		};
 		return [requestData, confirmString]
