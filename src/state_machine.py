@@ -1,5 +1,5 @@
 from devices import (SolenoidDevice, MOSFETSwitchDevice, PeristalticPumpDevice, 
-    AtlasSensor, WaterHeightSensor, TempSensor)
+    AtlasSensor, WaterHeightSensor, TempSensor, MultichannelSolidStateRelayDevice)
 import parameters as prm
 import logging
 import time
@@ -93,9 +93,9 @@ class WaterHeight(DeviceState):
         device = WaterHeightSensor(channel=channel, slope=slope, intercept=intercept)
         super().__init__(name="water_height", device=device, database=database)
 
-    def run(self, silent=False):
+    def run(self, silent=False, **kwargs):
         try:
-            self.value = self.device.read(with_voltage=True)
+            self.value = self.device.read(with_voltage=True, **kwargs)
             gallons, voltage = self.value
 
             if not silent:
@@ -169,15 +169,15 @@ class SensorStateMachine(StateMachine):
     def __init__(self):
         super().__init__(SensorStateMachine.ph)
 
-    def query(self, device, silent=False):
+    def query(self, device, silent=False, **kwargs):
         device = device.lower()
 
         if device == "ph":
-            return self.ph.run(silent=silent)
+            return self.ph.run(silent=silent, **kwargs)
         if device == "ec":
-            return self.ec.run(silent=silent)
+            return self.ec.run(silent=silent, **kwargs)
         if device == "level":
-            return self.water_height.run(silent=silent)
+            return self.water_height.run(silent=silent, **kwargs)
 
         return None
 
@@ -231,8 +231,66 @@ class ReservoirSolenoid:
                 logging.info(f"Solenoid closed")
 
             except Exception as e:
-                logging.error("Solenoid close error")
+                logging.error(f"Solenoid close error: {e}")
                 self.db.write_error(self.name, str(e))
+
+
+class DosingPump:
+    def __init__(self, name, pin, ml_per_min, database):
+        self.device = PeristalticPumpDevice(pin=pin, ml_per_min=ml_per_min)
+        self.db = database
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
+    def __del__(self):
+        try:
+            self.device.abort()
+        except:
+            pass
+
+    def dose(self, ml):
+        try:
+            logging.info(f"Dosing {ml} mL of {self.name}")
+            self.device.dose(ml)
+            self.db.write_value(self.name, ml)
+
+        except Exception as e:
+            logging.error(f"{self.name} dosing error: {e}")
+            self.db.write_error(self.name, str(e))
+
+
+class Relay:
+    def __init__(self, device, channel, name, db):
+        # device should be and instance of MultichannelSolidStateRelayDevice atm
+        self.device = device
+        self.channel = channel
+        self.name = name
+        self.db = db
+
+    def status(self):
+        return self.device.status(self.channel)
+
+    def on(self):
+        try:
+            logging.info(f"Powering on {self.name}")
+            self.device.on(self.channel)
+            self.db.write_value(self.name, 1)
+
+        except Exception as e:
+            logging.error(f"{self.name} power on error: {e}")
+            self.db.write_error(self.name, str(e))
+        
+    def off(self):
+        try:
+            logging.info(f"Powering off {self.name}")
+            self.device.off(self.channel)
+            self.db.write_value(self.name, 0)
+
+        except Exception as e:
+            logging.error(f"{self.name} power off error: {e}")
+            self.db.write_error(self.name, str(e))
 
 
 class Controls:
@@ -246,8 +304,8 @@ class RequestMonitor(State):
     def __init__(self, cycle_duration=900, flag_path='', sensors=None, controls=None):
         self.name = "sleep"
         self.file_err_flag = False
-        # At first, assume a 5-second runtime (but get better data over time)
-        self.run_times = [5] * 11
+        # At first, assume a 7.7-second runtime (but get better data over time)
+        self.run_times = [7.7] * 11
         self.cycle_duration = cycle_duration
         self.flag_path = flag_path
         self.sensors = sensors
@@ -304,6 +362,7 @@ class RequestMonitor(State):
         always adding FloraMicro before other nutrients.
 
         Order algo:
+        0   [TODO: Relay controls (lights, top-feed pump)]
         1   Empty reservoir
         2   Set reservoir water level
         3   Fill reservoir
@@ -332,40 +391,73 @@ class RequestMonitor(State):
     def execute_plan(self, plan, flag):
         for (device, action, value) in plan:
             took_action = False
+            mixin = False
             # Water level controls
             if device == 'level':
                 # Start by getting the current water level
                 current = self.sensors.query('level', silent=True)
 
+                # Add water
                 if (action == 'fill') or (action == 'set' and value > current):
                     # Add water! :)
                     try:
-                        while self.sensors.query('level', silent=True) < value:
+                        latest_level = self.sensors.query('level', silent=True, 
+                                                          num_samples=5, 
+                                                          num_trials=3)
+                        while latest_level < value:
                             self.controls.solenoid.open()
-                            time.sleep(.05)
+                            logging.info(f"Water level: {latest_level}")
+                            latest_level = self.sensors.query('level', 
+                                                              silent=True, 
+                                                              num_samples=5, 
+                                                              num_trials=3)
+                        logging.info(f"Water level: {latest_level}")
 
                     finally:
                         self.controls.solenoid.close()
                         # Let stuff mix and settle for a few seconds
-                        time.sleep(10)
+                        mixin = 10
                         took_action = True
                         
+                # Remove water
                 elif (action == 'drain') or (action == 'set' and value < current):
                     # Turn on the drain pump
                     logging.info("Activate drain pump relay")
                     pass
 
             elif device == 'ec':
-                logging.info("EC plan executed :)")
-                pass
+                if action == 'nute1':
+                    logging.info("EC plan executed for FloraGro :)")
+                elif action == 'nute2':
+                    self.controls.nute2.dose(value)
+                    took_action = True
+                    mixin = 10
+                elif action == 'nute3':
+                    self.controls.nute3.dose(value)
+                    took_action = True
+                    mixin = 10
+                elif action == 'nute4':
+                    self.controls.nute4.dose(value)
+                    took_action = True
+                    mixin = 10
+
             elif device == 'ph':
-                logging.info("pH plan executed :)")
-                pass
+                if action == 'up':
+                    self.controls.ph_up.dose(value)
+                    took_action = True
+                    mixin = 10
+                elif action == 'down':
+                    self.controls.ph_down.dose(value)
+                    took_action = True
+                    mixin = 10
 
             self._update_flag(flag, device, action, "status", "fulfilled")
-            # Refresh the sensor data before finishing this step
-        
+
         if took_action:
+            # Sleep for mixin, then update the sensor data
+            if mixin:
+                logging.info(f"Sleep for {mixin} seconds to allow for mixing")
+                time.sleep(mixin)
             self.sensors.cycle()
 
     def watch(self, sensor_data, cycle_time):
@@ -376,7 +468,20 @@ class RequestMonitor(State):
         logging.info(f"Monitor for requests for {wait_for} seconds...")
         self.wait_for_requests(wait_for)
 
+
+relays_device = MultichannelSolidStateRelayDevice(address=prm.RELAY_ADDRESS, 
+                                                  channels=4)
 sensor_state_machine = SensorStateMachine()
-controls = Controls(solenoid=ReservoirSolenoid(prm.SOLENOID_PIN, DB))
+controls = Controls(solenoid=ReservoirSolenoid(prm.SOLENOID_PIN, DB),
+                    ph_up=DosingPump("pH Up", prm.PHUPPIN, prm.PHUPRATE, DB),
+                    ph_down=DosingPump("pH Down", prm.PHDOWNPIN, prm.PHDOWNRATE, DB),
+                    nute1=DosingPump("FloraGro", prm.NUTE1PIN, prm.NUTE1RATE, DB),
+                    nute2=DosingPump("FloraMicro", prm.NUTE2PIN, prm.NUTE2RATE, DB),
+                    nute3=DosingPump("FloraBloom", prm.NUTE3PIN, prm.NUTE3RATE, DB),
+                    nute4=DosingPump("CALiMAGic", prm.NUTE4PIN, prm.NUTE4RATE, DB),
+                    drain=Relay(relays_device, 1, "Drain Pump", DB),
+                    topfeed=Relay(relays_device, 2, "Top Fee Pump", DB),
+                    veg_light=Relay(relays_device, 3, "Veg Lights", DB),
+                    bloom_light=Relay(relays_device, 4, "Flower Lights", DB))
 request_monitor = RequestMonitor(prm.CYCLE_DURATION, prm.FLAG_PATH, 
                                  sensor_state_machine, controls)

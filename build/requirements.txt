@@ -4,4 +4,5 @@ adafruit-circuitpython-ads1x15
 w1thermsensor
 smbus2
 RPI.GPIO
+sparkfun-qwiic-relay
 tzdata

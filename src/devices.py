@@ -3,6 +3,7 @@ from adafruit_ads1x15.analog_in import AnalogIn
 from atlas_i2c import sensors, commands
 from w1thermsensor import W1ThermSensor, Unit
 from gpiozero import DigitalOutputDevice, DeviceClosed
+from qwiic_relay import QwiicRelay
 import board
 import busio
 import statistics
@@ -46,12 +47,46 @@ class SolenoidDevice:
         self.output.off()
 
 
+class MultichannelSolidStateRelayDevice:
+    def __init__(self, address=0x08, channels=4, fail_open=True):
+        # Wrapper class for the Qwiic relays from SparkFun
+        self.relays = QwiicRelay(address)
+        self.available = self.relays.begin()
+        self.state = [False] * channels
+        self.fail_open = fail_open
+
+    def __del__(self):
+        try:
+            if self.fail_open:
+                self.relays.set_all_relays_off()
+            else:
+                self.set_all_relays_on()
+        except OSError:
+            # Device not connected
+            pass
+
+    def status(self, channel):
+        return self.state[channel]
+
+    def on(self, channel):
+        self.relays.set_relay_on(channel + 1)
+
+    def off(self, channel):
+        self.relays.set_relay_off(channel + 1)
+
+    def all_off(self):
+            self.relays.set_all_relays_off()
+
+
 class PeristalticPumpDevice:
     def __init__(self, pin, ml_per_min=59.4075):
         self.pump = MOSFETSwitchDevice(pin, fail_open=True)
         self.rate = ml_per_min / 60
 
     def __del__(self):
+        self.pump.off()
+
+    def abort(self):
         self.pump.off()
 
     def prime(self, run_time=5):
@@ -127,8 +162,8 @@ class WaterHeightSensor:
     def _voltage_to_gallons(self, voltage):
         return round(max(self.slope * voltage + self.intercept, 0), 1)
 
-    def read(self, with_voltage=False):
-        voltage = self.read_voltage()
+    def read(self, with_voltage=False, num_samples=25, num_trials=8):
+        voltage = self.read_voltage(num_samples, num_trials)
         gallons = self._voltage_to_gallons(voltage)
 
         if with_voltage:
