@@ -1,6 +1,8 @@
 # usage: python3 get_data.py [-h] [-n HOURS] [-d DEVICE]
-
-from src.database import DeviceDatabaseHandler
+import sys
+import os
+sys.path.append(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
+from database import DeviceDatabaseHandler
 import argparse
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo

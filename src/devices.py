@@ -132,7 +132,7 @@ class AtlasSensor:
         raise SystemError(f'There is a problem communicating with the {self.name} sensor. {attempts} attempts failed.')
 
 
-class WaterHeightSensor:
+class ETapeSensor:
     def __init__(self, channel, slope=1, intercept=0):
         self.voltage = -1
         self.slope = slope

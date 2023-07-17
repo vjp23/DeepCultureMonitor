@@ -1,5 +1,5 @@
 from devices import (SolenoidDevice, MOSFETSwitchDevice, PeristalticPumpDevice, 
-    AtlasSensor, WaterHeightSensor, TempSensor, MultichannelSolidStateRelayDevice)
+    AtlasSensor, ETapeSensor, TempSensor, MultichannelSolidStateRelayDevice)
 import parameters as prm
 import logging
 import time
@@ -90,7 +90,7 @@ class EC(DeviceState):
 
 class WaterHeight(DeviceState):
     def __init__(self, channel, slope, intercept, database):
-        device = WaterHeightSensor(channel=channel, slope=slope, intercept=intercept)
+        device = ETapeSensor(channel=channel, slope=slope, intercept=intercept)
         super().__init__(name="water_height", device=device, database=database)
 
     def run(self, silent=False, **kwargs):
@@ -473,12 +473,12 @@ relays_device = MultichannelSolidStateRelayDevice(address=prm.RELAY_ADDRESS,
                                                   channels=4)
 sensor_state_machine = SensorStateMachine()
 controls = Controls(solenoid=ReservoirSolenoid(prm.SOLENOID_PIN, DB),
-                    ph_up=DosingPump("pH Up", prm.PHUPPIN, prm.PHUPRATE, DB),
-                    ph_down=DosingPump("pH Down", prm.PHDOWNPIN, prm.PHDOWNRATE, DB),
-                    nute1=DosingPump("FloraGro", prm.NUTE1PIN, prm.NUTE1RATE, DB),
-                    nute2=DosingPump("FloraMicro", prm.NUTE2PIN, prm.NUTE2RATE, DB),
-                    nute3=DosingPump("FloraBloom", prm.NUTE3PIN, prm.NUTE3RATE, DB),
-                    nute4=DosingPump("CALiMAGic", prm.NUTE4PIN, prm.NUTE4RATE, DB),
+                    ph_up=DosingPump("pH Up", prm.PH_UP_PIN, prm.PH_UP_RATE, DB),
+                    ph_down=DosingPump("pH Down", prm.PH_DOWN_PIN, prm.PH_DOWN_RATE, DB),
+                    nute1=DosingPump("FloraGro", prm.NUTE_1_PIN, prm.NUTE_1_RATE, DB),
+                    nute2=DosingPump("FloraMicro", prm.NUTE_2_PIN, prm.NUTE_2_RATE, DB),
+                    nute3=DosingPump("FloraBloom", prm.NUTE_3_PIN, prm.NUTE_3_RATE, DB),
+                    nute4=DosingPump("CALiMAGic", prm.NUTE_4_PIN, prm.NUTE_4_RATE, DB),
                     drain=Relay(relays_device, 1, "Drain Pump", DB),
                     topfeed=Relay(relays_device, 2, "Top Feed Pump", DB),
                     veg_light=Relay(relays_device, 3, "Veg Lights", DB),
