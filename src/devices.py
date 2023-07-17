@@ -1,5 +1,6 @@
 import adafruit_ads1x15.ads1015 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
+import adafruit_mprls as mprls
 from atlas_i2c import sensors, commands
 from w1thermsensor import W1ThermSensor, Unit
 from gpiozero import DigitalOutputDevice, DeviceClosed
@@ -168,6 +169,44 @@ class ETapeSensor:
 
         if with_voltage:
             return gallons, voltage
+
+        return gallons
+
+
+class MPRLSSensor:
+    def __init__(self, slope=1, intercept=0):
+        self.slope = slope
+        self.intercept = intercept
+        # Create the I2C bus
+        i2c = busio.I2C(board.SCL, board.SDA)
+        self.sensor = mprls.MPRLS(i2c)
+        # 1 PSI = psi_conversion_factor hPA
+        self.psi_conversion_factor = 1 / 68.947572932
+
+    def read_pressure(self, num_samples=5, num_trials=3):
+        # Return the mean of num_trials medians of num_samples samples
+        sample_medians = []
+        for _ in range(num_trials):
+            samples = []
+            for _ in range(num_samples):
+                samples.append(self.sensor.pressure)
+                time.sleep(0.005)
+            sample_medians.append(statistics.median(samples))
+
+        return sum(sample_medians) / num_trials
+
+    def _pressure_to_gallons(self, pressure):
+        return round(max(self.slope * pressure + self.intercept, 0), 1)
+
+    def read(self, with_pressure=False, as_psi=False, num_samples=5, num_trials=3):
+        pressure = self.read_pressure(num_samples, num_trials)
+        gallons = self._pressure_to_gallons(pressure)
+
+        if as_psi:
+            pressure *= self.psi_conversion_factor
+
+        if with_pressure:
+            return gallons, pressure
 
         return gallons
 

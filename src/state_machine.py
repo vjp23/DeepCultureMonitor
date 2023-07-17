@@ -1,5 +1,5 @@
 from devices import (SolenoidDevice, MOSFETSwitchDevice, PeristalticPumpDevice, 
-    AtlasSensor, ETapeSensor, TempSensor, MultichannelSolidStateRelayDevice)
+    AtlasSensor, MPRLSSensor, TempSensor, MultichannelSolidStateRelayDevice)
 import parameters as prm
 import logging
 import time
@@ -89,21 +89,21 @@ class EC(DeviceState):
 
 
 class WaterHeight(DeviceState):
-    def __init__(self, channel, slope, intercept, database):
-        device = ETapeSensor(channel=channel, slope=slope, intercept=intercept)
+    def __init__(self, slope, intercept, database):
+        device = MPRLSSensor(slope=slope, intercept=intercept)
         super().__init__(name="water_height", device=device, database=database)
 
     def run(self, silent=False, **kwargs):
         try:
-            self.value = self.device.read(with_voltage=True, **kwargs)
-            gallons, voltage = self.value
+            self.value = self.device.read(with_pressure=True, **kwargs)
+            gallons, pressure = self.value
 
             if not silent:
                 self.db.write_value("water_gallons", gallons)
-                self.db.write_value("water_height_volts", voltage)
+                self.db.write_value("water_height_pressure", pressure)
 
                 logging.info(f"Reservoir level: {gallons} gallons")
-                logging.info(f"ETape Voltage: {voltage} volts")
+                logging.info(f"Water height pressure: {pressure} hPA")
 
             return gallons
 
@@ -160,9 +160,8 @@ class SensorStateMachine(StateMachine):
     # Initialize static variables
     ph = pH(prm.PH_ADDRESS, DB)
     ec = EC(prm.EC_ADDRESS, DB)
-    water_height = WaterHeight(prm.ETAPE_CHANNEL,
-                               prm.ETAPE_SLOPE,
-                               prm.ETAPE_INTERCEPT,
+    water_height = WaterHeight(prm.RES_LEVEL_SLOPE,
+                               prm.RES_LEVEL__INTERCEPT,
                                DB)
     water_temp = WaterTemp(DB)
 
@@ -402,14 +401,14 @@ class RequestMonitor(State):
                     # Add water! :)
                     try:
                         latest_level = self.sensors.query('level', silent=True, 
-                                                          num_samples=5, 
+                                                          num_samples=3,
                                                           num_trials=3)
                         while latest_level < value:
                             self.controls.solenoid.open()
                             logging.info(f"Water level: {latest_level}")
                             latest_level = self.sensors.query('level', 
                                                               silent=True, 
-                                                              num_samples=5, 
+                                                              num_samples=3,
                                                               num_trials=3)
                         logging.info(f"Water level: {latest_level}")
 
